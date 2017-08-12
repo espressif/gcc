@@ -55,6 +55,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "hw-doloop.h"
 #include "rtl-iter.h"
+#include "tree-pass.h"
+#include "context.h"
+#include "insn-attr.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -2228,6 +2231,185 @@ xtensa_return_in_msb (const_tree valtype)
 }
 
 
+#define USEFUL_INSN_P(INSN)                     \
+  (NONDEBUG_INSN_P (INSN)                       \
+   && GET_CODE (PATTERN (INSN)) != USE                  \
+   && GET_CODE (PATTERN (INSN)) != CLOBBER)
+
+/* If INSN is a delayed branch sequence, return the first instruction
+   in the sequence, otherwise return INSN itself.  */
+#define SEQ_BEGIN(INSN)							\
+  (INSN_P (INSN) && GET_CODE (PATTERN (INSN)) == SEQUENCE		\
+   ? as_a <rtx_insn *> (XVECEXP (PATTERN (INSN), 0, 0))			\
+   : (INSN))
+
+/* Likewise for the last instruction in a delayed branch sequence.  */
+#define SEQ_END(INSN)							\
+  (INSN_P (INSN) && GET_CODE (PATTERN (INSN)) == SEQUENCE		\
+   ? as_a <rtx_insn *> (XVECEXP (PATTERN (INSN),			\
+				 0,					\
+				 XVECLEN (PATTERN (INSN), 0) - 1))	\
+   : (INSN))
+
+/* Execute the following loop body with SUBINSN set to each instruction
+   between SEQ_BEGIN (INSN) and SEQ_END (INSN) inclusive.  */
+#define FOR_EACH_SUBINSN(SUBINSN, INSN)					\
+  for ((SUBINSN) = SEQ_BEGIN (INSN);					\
+       (SUBINSN) != NEXT_INSN (SEQ_END (INSN));				\
+       (SUBINSN) = NEXT_INSN (SUBINSN))
+
+
+
+/*
+Xtensa does a load/store inversion when a load and a store to the same address is found in the
+5 affected stages of the pipeline: with a load done _after_ the store in code, the Xtensa will move 
+it _before_ the store in execution. Unfortunately, the ESP32 PSRAM cache messes up handling these 
+when an interrupt happens during these. This reorg step inserts nops between loads and stores so 
+this never occurs.
+
+The handling issue also shows up when doing a store to an 8 or 16-bit memory location followed by
+a larger (16 or 32-bit) sized load from that location within the time it takes to grab a cache 
+line from external RAM (which is at least 80 cycles). The cache will confuse the load and store, 
+resulting in the bytes not set by thje store to be read as garbage. To fix this, we insert a 
+memory barrier after each 8/16-bit store that isn't followed by another store.
+*/
+
+//Affected piece of pipeline is 5 entries long; the load/store itself fills one.
+#define LOAD_STORE_OFF 4
+
+static int insns_since_store = 0;
+static rtx_insn *store_insn = NULL;
+static rtx_insn *last_hiqi_store=NULL;
+
+
+const char* attrstr[]={"TYPE_UNKNOWN", "TYPE_JUMP", 
+	"TYPE_CALL", "TYPE_LOAD", "TYPE_STORE", "TYPE_MOVE", "TYPE_ARITH", 
+	"TYPE_MULTI", "TYPE_NOP", "TYPE_FARITH", "TYPE_FMADD", "TYPE_FCONV", 
+	"TYPE_FLOAD", "TYPE_FSTORE", "TYPE_MUL16", "TYPE_MUL32", "TYPE_DIV32", 
+	"TYPE_MAC16", "TYPE_RSR", "TYPE_WSR", "TYPE_ENTRY", "TYPE_TRAP"};
+
+
+
+static void handle_fix_reorg_insn(rtx_insn *insn) {
+	enum attr_type attr_type = get_attr_type (insn);
+	if (attr_type == TYPE_STORE || attr_type == TYPE_FSTORE) {
+		rtx x=XEXP(PATTERN(insn), 0);
+		//Store
+		insns_since_store = 0;
+		store_insn = insn;
+		if (attr_type == TYPE_STORE && (GET_MODE(x)==HImode || GET_MODE(x)==QImode)) {
+			//This is an 16- or 8-bit store, record it.
+			last_hiqi_store=insn;
+		} else {
+			//32-bit store. This store undoes the possibility of badness in earlier 8/16-bit stores
+			//because it forces those stores to finish.
+			last_hiqi_store=NULL;
+		}
+	} else if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD) {
+		//Load
+		if (store_insn) {
+			while (insns_since_store++ < LOAD_STORE_OFF) {
+				emit_insn_before (gen_nop(), insn);
+			}
+		}
+	} else if (attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
+		store_insn = NULL; //Pipeline gets cleared; any load is inconsequential
+	} else {
+		insns_since_store++;
+	}
+	if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD || attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
+		if (last_hiqi_store) {
+			//Need to memory barrier the s8i/s16i instruction.
+			emit_insn_after(gen_memory_barrier(), last_hiqi_store);
+			last_hiqi_store=NULL;
+		}
+	}
+}
+
+
+static void xtensa_psram_cache_fix_reorg()
+{
+	rtx_insn *insn, *subinsn, *next_insn;
+	for (insn = get_insns(); insn != 0; insn = next_insn) {
+		next_insn = NEXT_INSN (insn);
+		int  length = get_attr_length (insn);
+		
+		if (USEFUL_INSN_P (insn) && length>0  ) {
+			FOR_EACH_SUBINSN (subinsn, insn) {
+				handle_fix_reorg_insn(subinsn);
+			}
+		}
+	}
+}
+
+//Emits a memw before every load/store instruction. Hard-handed approach to get rid
+//of any pipeline/memory issues...
+static void xtensa_insert_memw_reorg()
+{
+	rtx_insn *insn, *subinsn, *next_insn;
+	for (insn = get_insns(); insn != 0; insn = next_insn) {
+		next_insn = NEXT_INSN (insn);
+		int  length = get_attr_length (insn);
+		
+		if (USEFUL_INSN_P (insn) && length>0  ) {
+			FOR_EACH_SUBINSN (subinsn, insn) {
+				enum attr_type attr_type = get_attr_type (insn);
+				if (attr_type == TYPE_STORE || attr_type == TYPE_LOAD) {
+					emit_insn_before (gen_memory_barrier(), insn);
+				}
+			}
+		}
+	}
+}
+
+static unsigned int xtensa_machine_reorg(void) {
+	if (TARGET_ESP32_PSRAM_FIX) {
+		xtensa_psram_cache_fix_reorg();
+	}
+	if (TARGET_ESP32_ALWAYS_MEMMARRIER) {
+		xtensa_insert_memw_reorg();
+	}
+	return 0;
+}
+
+
+namespace {
+
+const pass_data pass_data_xtensa_psram_nops =
+{
+  RTL_PASS, /* type */
+  "xtensa-psram-nops", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_MACH_DEP, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_xtensa_psram_nops : public rtl_opt_pass
+{
+public:
+  pass_xtensa_psram_nops(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_xtensa_psram_nops, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual unsigned int execute (function *) { return xtensa_machine_reorg (); }
+
+}; // class pass_mips_machine_reorg2
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_xtensa_psram_nops (gcc::context *ctxt)
+{
+  return new pass_xtensa_psram_nops (ctxt);
+}
+
+
+
 static void
 xtensa_option_override (void)
 {
@@ -2298,6 +2480,19 @@ xtensa_option_override (void)
     flag_pic = 1;
   if (flag_pic && !flag_pie)
     flag_shlib = 1;
+
+  /* Register machine specific reorg for optional nop insertion to
+     fix psram cache bug on esp32 v0/v1 silicon  */
+  opt_pass *new_pass = make_pass_xtensa_psram_nops (g);
+  struct register_pass_info insert_pass_xtensa_psram_nops =
+    {
+      new_pass,		/* pass */
+      "dbr",			/* reference_pass_name */
+      1,			/* ref_pass_instance_number */
+      PASS_POS_INSERT_AFTER	/* po_op */
+    };
+  register_pass (&insert_pass_xtensa_psram_nops);
+
 
   /* Hot/cold partitioning does not work on this architecture, because of
      constant pools (the load instruction cannot necessarily reach that far).

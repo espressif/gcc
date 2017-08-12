@@ -56,3 +56,11 @@ Use call0 ABI.
 mabi=windowed
 Target RejectNegative Var(xtensa_windowed_abi, 1)
 Use windowed registers ABI.
+
+mfix-esp32-psram-cache-issue
+Target Report Mask(ESP32_PSRAM_FIX)
+Fix esp32 psram cache issue
+
+malways-memw
+Target Report Mask(ESP32_ALWAYS_MEMMARRIER)
+Always emit a MEMW before a load or store operation. Used to debug memory coherency issues.

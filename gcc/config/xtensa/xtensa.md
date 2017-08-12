@@ -109,13 +109,37 @@
 ;; reservations in the pipeline description below.  The Xtensa can
 ;; issue one instruction per cycle, so defining CPU units is unnecessary.
 
+(define_cpu_unit "loadstore")
+
 (define_insn_reservation "xtensa_any_insn" 1
-			 (eq_attr "type" "!load,fload,rsr,mul16,mul32,fmadd,fconv")
+			 (eq_attr "type" "!load,fload,store,fstore,rsr,mul16,mul32,fmadd,fconv")
 			 "nothing")
 
-(define_insn_reservation "xtensa_memory" 2
-			 (eq_attr "type" "load,fload")
+(define_insn_reservation "xtensa_memory_load" 2
+			 (and (not (match_test "TARGET_ESP32_PSRAM_FIX"))
+			 (eq_attr "type" "load,fload"))
 			 "nothing")
+
+(define_insn_reservation "xtensa_memory_store" 1
+			 (and (not (match_test "TARGET_ESP32_PSRAM_FIX"))
+			 (eq_attr "type" "store,fstore"))
+			 "nothing")
+
+;; If psram cache issue needs fixing, it's better to keep 
+;; stores far from loads from the same address. We cannot encode
+;; that behaviour entirely here (or maybe we can, but at least 
+;; not easily), but we can try to get everything that smells like 
+;; load or store up to a pipeline length apart from each other.
+
+(define_insn_reservation "xtensa_memory_load_psram_fix" 2
+			 (and (match_test "TARGET_ESP32_PSRAM_FIX")
+			 (eq_attr "type" "load,fload"))
+			 "loadstore*5")
+
+(define_insn_reservation "xtensa_memory_store_psram_fix" 1
+			 (and (match_test "TARGET_ESP32_PSRAM_FIX")
+			 (eq_attr "type" "store,fstore"))
+			 "loadstore*5")
 
 (define_insn_reservation "xtensa_sreg" 2
 			 (eq_attr "type" "rsr")
