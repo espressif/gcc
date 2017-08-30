@@ -58,4 +58,7 @@
 
 #endif
 
+#define _GTHREAD_USE_MUTEX_INIT_FUNC  1
+#define _GLIBCXX_USE_SCHED_YIELD      1
+
 #endif
