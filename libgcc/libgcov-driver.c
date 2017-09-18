@@ -48,11 +48,22 @@ void __gcov_init (struct gcov_info *p __attribute__ ((unused))) {}
 
 #ifdef L_gcov
 
+#if GCOV_CUSTOM_RTIO
+int gcov_rtio_atexit(void (*function)(void)) __attribute__((weak));
+int gcov_rtio_atexit(void (*function)(void) __attribute__ ((unused))) {return 0;}
+#else
+#define dbg_printf(...)
+#endif
+
 /* A utility function for outputting errors.  */
 static int gcov_error (const char *, ...);
 
 #if !IN_GCOV_TOOL
 static void gcov_error_exit (void);
+
+#if GCOV_CUSTOM_RTIO
+static int __gcov_no_merge;
+#endif
 #endif
 
 #include "gcov-io.c"
@@ -650,6 +661,15 @@ __gcov_exit (void)
   gcov_error_exit ();
 }
 
+#if GCOV_CUSTOM_RTIO
+static void
+__gcov_exit_nomerge (void)
+{
+  __gcov_no_merge = 1;
+  __gcov_exit ();
+}
+#endif
+
 /* Add a new object file onto the bb chain.  Invoked automatically
   when running an object file's global ctors.  */
 
@@ -670,6 +690,9 @@ __gcov_init (struct gcov_info *info)
 		__gcov_master.root->prev = &__gcov_root;
 	      __gcov_master.root = &__gcov_root;
 	    }
+#if GCOV_CUSTOM_RTIO
+	  gcov_rtio_atexit(__gcov_exit_nomerge);
+#endif
 	}
 
       info->next = __gcov_root.list;

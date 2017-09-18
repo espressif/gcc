@@ -278,6 +278,12 @@ fi
 ])
 AC_SUBST([force_explicit_eh_registry])
 
+AC_ARG_ENABLE(gcov-custom-rtio,
+[AS_HELP_STRING([--enable-gcov-custom-rtio],
+  [Enable custom file I/O API for gcov at runtime (default is no)])],
+gcov_custom_rtio_flags=-DGCOV_CUSTOM_RTIO=1, )
+AC_SUBST(gcov_custom_rtio_flags)
+
 AC_ARG_ENABLE([tm-clone-registry],
 [  --disable-tm-clone-registry    disable TM clone registry],
 [

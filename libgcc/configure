@@ -605,6 +605,7 @@ solaris_ld_v2_maps
 real_host_noncanonical
 accel_dir_suffix
 use_tm_clone_registry
+gcov_custom_rtio_flags
 force_explicit_eh_registry
 CET_FLAGS
 fixed_point
@@ -715,6 +716,7 @@ with_system_libunwind
 enable_cet
 enable_explicit_exception_frame_registration
 enable_tm_clone_registry
+enable_gcov_custom_rtio
 with_glibc_version
 enable_tls
 with_gcc_major_version_only
@@ -1359,6 +1361,9 @@ Optional Features:
                           start, for use e.g. for compatibility with
                           installations without PT_GNU_EH_FRAME support
   --disable-tm-clone-registry    disable TM clone registry
+  --enable-gcov-custom-rtio
+                          Enable custom file I/O API for gcov at runtime
+                          (default is no)
   --enable-tls            Use thread-local storage [default=yes]
 
 Optional Packages:
@@ -4990,6 +4995,13 @@ if test "$enable_explicit_exception_frame_registration" = yes; then
   force_explicit_eh_registry=-DUSE_EH_FRAME_REGISTRY_ALWAYS
 fi
 
+fi
+
+
+
+# Check whether --enable-gcov-custom-rtio was given.
+if test "${enable_gcov_custom_rtio+set}" = set; then :
+  enableval=$enable_gcov_custom_rtio; gcov_custom_rtio_flags=-DGCOV_CUSTOM_RTIO=1
 fi
 
 
