@@ -28,8 +28,46 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    another source file, after having #included gcov-io.h.  */
 
 #if !IN_GCOV
+
+#if GCOV_CUSTOM_RTIO
+void * gcov_rtio_fopen(const char *path, const char *mode) __attribute__((weak));
+int    gcov_rtio_fclose(void *stream) __attribute__((weak));
+size_t gcov_rtio_fread(void *ptr, size_t size, size_t nmemb, void *stream) __attribute__((weak));
+size_t gcov_rtio_fwrite(const void *ptr, size_t size, size_t nmemb, void *stream) __attribute__((weak));
+int    gcov_rtio_fseek(void *stream, long offset, int whence) __attribute__((weak));
+long   gcov_rtio_ftell(void *stream) __attribute__((weak));
+void * gcov_rtio_fopen(const char *path __attribute__ ((unused)), const char *mode __attribute__ ((unused))) {return NULL;}
+int    gcov_rtio_fclose(void *stream __attribute__ ((unused))) {return 0;}
+size_t gcov_rtio_fread(void *ptr __attribute__ ((unused)), size_t size __attribute__ ((unused)), size_t nmemb __attribute__ ((unused)), void *stream __attribute__ ((unused))) {return 0;}
+size_t gcov_rtio_fwrite(const void *ptr __attribute__ ((unused)), size_t size __attribute__ ((unused)), size_t nmemb __attribute__ ((unused)), void *stream __attribute__ ((unused))) {return 0;}
+int    gcov_rtio_fseek(void *stream __attribute__ ((unused)), long offset __attribute__ ((unused)), int whence __attribute__ ((unused))) {return 0;}
+long   gcov_rtio_ftell(void *stream __attribute__ ((unused))) {return 0;}
+#define GCOV_FOPEN(_p_, _m_)             gcov_rtio_fopen(_p_, _m_)
+#define GCOV_FCLOSE(_f_)                 gcov_rtio_fclose(_f_)
+#define GCOV_FWRITE(_b_, _s_, _c_, _f_)  gcov_rtio_fwrite(_b_, _s_, _c_, _f_)
+#define GCOV_FREAD(_b_, _s_, _c_, _f_)   (__gcov_no_merge ? 0 : gcov_rtio_fread(_b_, _s_, _c_, _f_))
+#define GCOV_FSEEK(_f_, _p_, _w_)        gcov_rtio_fseek(_f_, _p_, _w_)
+#define GCOV_FTELL(_f_)                  gcov_rtio_ftell(_f_)
+#else
+#define GCOV_FOPEN(_p_, _m_)             fopen(_p_, _m_)
+#define GCOV_FCLOSE(_f_)                 fclose(_f_)
+#define GCOV_FWRITE(_b_, _s_, _c_, _f_)  fwrite(_b_, _s_, _c_, _f_)
+#define GCOV_FREAD(_b_, _s_, _c_, _f_)   fread(_b_, _s_, _c_, _f_)
+#define GCOV_FSEEK(_f_, _o_, _w_)        fseek(_f_, _o_, _w_)
+#define GCOV_FTELL(_f_)                  ftell(_f_)
+#endif
+
+#define GCOV_HIST_ALLOC(_nm_) \
+  gcov_bucket_type * _nm_ = (gcov_bucket_type *)xmalloc(sizeof(gcov_bucket_type)*GCOV_HISTOGRAM_SIZE);
+#define GCOV_HIST_FREE(_nm_) \
+  free(_nm_);
+
 static void gcov_write_block (unsigned);
 static gcov_unsigned_t *gcov_write_words (unsigned);
+#else
+#define GCOV_FOPEN(_p_, _m_)             fopen(_p_, _m_)
+#define GCOV_FCLOSE(_f_)                 fclose(_f_)
+#define GCOV_FREAD(_b_, _s_, _c_, _f_)   fread(_b_, _s_, _c_, _f_)
 #endif
 static const gcov_unsigned_t *gcov_read_words (unsigned);
 #if !IN_LIBGCOV
@@ -94,7 +132,7 @@ gcov_rewrite (void)
   gcov_var.mode = -1; 
   gcov_var.start = 0;
   gcov_var.offset = 0;
-  fseek (gcov_var.file, 0L, SEEK_SET);
+  GCOV_FSEEK (gcov_var.file, 0L, SEEK_SET);
 }
 #endif
 
@@ -139,7 +177,9 @@ gcov_open (const char *name, int mode)
   s_flock.l_pid = getpid ();
 #endif
 
+#if GCOV_CUSTOM_RTIO == 0
   gcov_nonruntime_assert (!gcov_var.file);
+#endif
   gcov_var.start = 0;
   gcov_var.offset = gcov_var.length = 0;
   gcov_var.overread = -1u;
@@ -178,13 +218,13 @@ gcov_open (const char *name, int mode)
 #else
   if (mode >= 0)
     /* Open an existing file.  */
-    gcov_var.file = fopen (name, (mode > 0) ? "rb" : "r+b");
+    gcov_var.file = GCOV_FOPEN (name, (mode > 0) ? "rb" : "r+b");
 
   if (gcov_var.file)
     mode = 1;
   else if (mode <= 0)
     /* Create a new file.  */
-    gcov_var.file = fopen (name, "w+b");
+    gcov_var.file = GCOV_FOPEN (name, "w+b");
 
   if (!gcov_var.file)
     return 0;
@@ -192,7 +232,9 @@ gcov_open (const char *name, int mode)
 
   gcov_var.mode = mode ? mode : 1;
 
+#if GCOV_CUSTOM_RTIO == 0
   setbuf (gcov_var.file, (char *)0);
+#endif
 
   return 1;
 }
@@ -209,7 +251,7 @@ gcov_close (void)
       if (gcov_var.offset && gcov_var.mode < 0)
 	gcov_write_block (gcov_var.offset);
 #endif
-      fclose (gcov_var.file);
+      GCOV_FCLOSE (gcov_var.file);
       gcov_var.file = 0;
       gcov_var.length = 0;
     }
@@ -265,7 +307,7 @@ gcov_allocate (unsigned length)
 static void
 gcov_write_block (unsigned size)
 {
-  if (fwrite (gcov_var.buffer, size << 2, 1, gcov_var.file) != 1)
+  if (GCOV_FWRITE (gcov_var.buffer, size << 2, 1, gcov_var.file) != 1)
     gcov_var.error = 1;
   gcov_var.start += size;
   gcov_var.offset -= size;
@@ -526,7 +568,7 @@ gcov_read_words (unsigned words)
 	gcov_allocate (gcov_var.length + words);
       excess = gcov_var.alloc - gcov_var.length;
 #endif
-      excess = fread (gcov_var.buffer + gcov_var.length,
+      excess = GCOV_FREAD (gcov_var.buffer + gcov_var.length,
 		      1, excess << 2, gcov_var.file) >> 2;
       gcov_var.length += excess;
       if (gcov_var.length < words)
@@ -693,8 +735,8 @@ gcov_seek (gcov_position_t base)
 {
   if (gcov_var.offset)
     gcov_write_block (gcov_var.offset);
-  fseek (gcov_var.file, base << 2, SEEK_SET);
-  gcov_var.start = ftell (gcov_var.file) >> 2;
+  GCOV_FSEEK (gcov_var.file, base << 2, SEEK_SET);
+  gcov_var.start = GCOV_FTELL (gcov_var.file) >> 2;
 }
 #endif
 
@@ -778,9 +820,13 @@ static void gcov_histogram_merge (gcov_bucket_type *tgt_histo,
   unsigned src_num, tgt_num, merge_num;
   gcov_type src_cum, tgt_cum, merge_src_cum, merge_tgt_cum, merge_cum;
   gcov_type merge_min;
-  gcov_bucket_type tmp_histo[GCOV_HISTOGRAM_SIZE];
   int src_done = 0;
 
+  GCOV_HIST_ALLOC(tmp_histo);
+  if (!tmp_histo) {
+    gcov_error("failed to alloc mem for histogram merge!\n");
+    return;
+  }
   memset (tmp_histo, 0, sizeof (gcov_bucket_type) * GCOV_HISTOGRAM_SIZE);
 
   /* Assume that the counters are in the same relative order in both
@@ -908,6 +954,7 @@ static void gcov_histogram_merge (gcov_bucket_type *tgt_histo,
   /* Finally, copy the merged histogram into tgt_histo.  */
   memcpy (tgt_histo, tmp_histo,
 	  sizeof (gcov_bucket_type) * GCOV_HISTOGRAM_SIZE);
+  GCOV_HIST_FREE(tmp_histo);
 }
 #endif /* !IN_GCOV */
 

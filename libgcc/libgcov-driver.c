@@ -43,11 +43,34 @@ void __gcov_init (struct gcov_info *p __attribute__ ((unused))) {}
 
 #ifdef L_gcov
 
+#if GCOV_CUSTOM_RTIO
+int gcov_rtio_atexit(void (*function)(void)) __attribute__((weak));
+int gcov_rtio_atexit(void (*function)(void) __attribute__ ((unused))) {return 0;}
+#else
+#define dbg_printf(...)
+#endif
+
+#if IN_GCOV_TOOL
+#define GCOV_SUMMARY_ALLOC(_nm_) \
+  struct gcov_summary _nm_ ## _tmp; \
+  struct gcov_summary * _nm_ = &(_nm_ ## _tmp);
+#define GCOV_SUMMARY_FREE(_nm_)
+#else
+#define GCOV_SUMMARY_ALLOC(_nm_) \
+  struct gcov_summary * _nm_ = xmalloc(sizeof(struct gcov_summary));
+#define GCOV_SUMMARY_FREE(_nm_) \
+  free(_nm_);
+#endif
+
 /* A utility function for outputting errors.  */
 static int gcov_error (const char *, ...);
 
 #if !IN_GCOV_TOOL
 static void gcov_error_exit (void);
+
+#if GCOV_CUSTOM_RTIO
+static int __gcov_no_merge;
+#endif
 #endif
 
 #include "gcov-io.c"
@@ -375,11 +398,14 @@ merge_one_data (const char *filename,
     /* Read from a different compilation. Overwrite the file.  */
     return 0;
 
+  GCOV_SUMMARY_ALLOC(ptmp);
+  if (!ptmp) {
+    gcov_error ("failed to alloc mem for summary!\n");
+    return -1;
+  }
   /* Look for program summary.  */
   for (f_ix = 0;;)
     {
-      struct gcov_summary tmp;
-
       *eof_pos_p = gcov_position ();
       tag = gcov_read_unsigned ();
       if (tag != GCOV_TAG_PROGRAM_SUMMARY)
@@ -387,9 +413,11 @@ merge_one_data (const char *filename,
 
       f_ix--;
       length = gcov_read_unsigned ();
-      gcov_read_summary (&tmp);
-      if ((error = gcov_is_error ()))
+      gcov_read_summary (ptmp);
+      if ((error = gcov_is_error ())) {
+        GCOV_SUMMARY_FREE(ptmp);
         goto read_error;
+      }
       if (*summary_pos_p)
         {
           /* Save all summaries after the one that will be
@@ -399,22 +427,23 @@ merge_one_data (const char *filename,
              size of the merged summary.  */
           (*sum_tail) = (struct gcov_summary_buffer *)
               xmalloc (sizeof(struct gcov_summary_buffer));
-          (*sum_tail)->summary = tmp;
+          (*sum_tail)->summary = *ptmp;
           (*sum_tail)->next = 0;
           sum_tail = &((*sum_tail)->next);
           goto next_summary;
         }
-      if (tmp.checksum != crc32)
+      if (ptmp->checksum != crc32)
         goto next_summary;
 
       for (t_ix = 0; t_ix != GCOV_COUNTERS_SUMMABLE; t_ix++)
-        if (tmp.ctrs[t_ix].num != this_prg->ctrs[t_ix].num)
+        if (ptmp->ctrs[t_ix].num != this_prg->ctrs[t_ix].num)
           goto next_summary;
-      *prg_p = tmp;
+      *prg_p = *ptmp;
       *summary_pos_p = *eof_pos_p;
 
     next_summary:;
     }
+    GCOV_SUMMARY_FREE(ptmp);
 
   /* Merge execution counts for each function.  */
   for (f_ix = 0; (unsigned)f_ix != gi_ptr->n_functions;
@@ -764,7 +793,6 @@ dump_one_gcov (struct gcov_info *gi_ptr, struct gcov_filename *gf,
 	       gcov_unsigned_t crc32, struct gcov_summary *all_prg,
 	       struct gcov_summary *this_prg)
 {
-  struct gcov_summary prg; /* summary for this object over all program.  */
   int error;
   gcov_unsigned_t tag;
   gcov_position_t summary_pos = 0;
@@ -775,9 +803,18 @@ dump_one_gcov (struct gcov_info *gi_ptr, struct gcov_filename *gf,
 
   gcov_sort_topn_counter_arrays (gi_ptr);
 
-  error = gcov_exit_open_gcda_file (gi_ptr, gf);
-  if (error == -1)
+  /* summary for this object over all program.  */
+  GCOV_SUMMARY_ALLOC(pprg);
+  if (!pprg) {
+    fprintf (stderr, "failed to alloc mem for summary:%s:Skip\n", gf->filename);
     return;
+  }
+
+  error = gcov_exit_open_gcda_file (gi_ptr, gf);
+  if (error == -1) {
+    GCOV_SUMMARY_FREE(pprg);
+    return;
+  }
 
   tag = gcov_read_unsigned ();
   if (tag)
@@ -788,7 +825,7 @@ dump_one_gcov (struct gcov_info *gi_ptr, struct gcov_filename *gf,
           gcov_error ("profiling:%s:Not a gcov data file\n", gf->filename);
           goto read_fatal;
         }
-      error = merge_one_data (gf->filename, gi_ptr, &prg, this_prg,
+      error = merge_one_data (gf->filename, gi_ptr, pprg, this_prg,
 			      &summary_pos, &eof_pos, crc32);
       if (error == -1)
         goto read_fatal;
@@ -798,19 +835,20 @@ dump_one_gcov (struct gcov_info *gi_ptr, struct gcov_filename *gf,
 
   if (!summary_pos)
     {
-      memset (&prg, 0, sizeof (prg));
+      memset (pprg, 0, sizeof (*pprg));
       summary_pos = eof_pos;
     }
 
-  error = merge_summary (gf->filename, run_counted, gi_ptr, &prg, this_prg,
+  error = merge_summary (gf->filename, run_counted, gi_ptr, pprg, this_prg,
 			 crc32, all_prg);
   if (error == -1)
     goto read_fatal;
 
-  write_one_data (gi_ptr, &prg, eof_pos, summary_pos);
+  write_one_data (gi_ptr, pprg, eof_pos, summary_pos);
   /* fall through */
 
 read_fatal:;
+  GCOV_SUMMARY_FREE(pprg);
   while (fn_buffer)
     fn_buffer = free_fn_data (gi_ptr, fn_buffer, GCOV_COUNTERS);
 
@@ -835,20 +873,32 @@ gcov_do_dump (struct gcov_info *list, int run_counted)
   struct gcov_info *gi_ptr;
   struct gcov_filename gf;
   gcov_unsigned_t crc32;
-  struct gcov_summary all_prg;
-  struct gcov_summary this_prg;
 
-  crc32 = compute_summary (list, &this_prg, &gf.max_length);
+  GCOV_SUMMARY_ALLOC(pall_prg);
+  if (!pall_prg) {
+    fprintf (stderr, "failed to alloc mem for summary!\n");
+    return;
+  }
+  GCOV_SUMMARY_ALLOC(pthis_prg);
+  if (!pthis_prg) {
+    fprintf (stderr, "failed to alloc mem for summary!\n");
+    GCOV_SUMMARY_FREE(pall_prg);
+    return;
+  }
+
+  crc32 = compute_summary (list, pthis_prg, &gf.max_length);
 
   allocate_filename_struct (&gf);
 #if !GCOV_LOCKED
-  memset (&all_prg, 0, sizeof (all_prg));
+  memset (pall_prg, 0, sizeof (*pall_prg));
 #endif
 
   /* Now merge each file.  */
   for (gi_ptr = list; gi_ptr; gi_ptr = gi_ptr->next)
-    dump_one_gcov (gi_ptr, &gf, run_counted, crc32, &all_prg, &this_prg);
+    dump_one_gcov (gi_ptr, &gf, run_counted, crc32, pall_prg, pthis_prg);
 
+  GCOV_SUMMARY_FREE(pthis_prg);
+  GCOV_SUMMARY_FREE(pall_prg);
   free (gf.filename);
 }
 
@@ -895,6 +945,15 @@ __gcov_exit (void)
   gcov_error_exit ();
 }
 
+#if GCOV_CUSTOM_RTIO
+static void
+__gcov_exit_nomerge (void)
+{
+  __gcov_no_merge = 1;
+  __gcov_exit ();
+}
+#endif
+
 /* Add a new object file onto the bb chain.  Invoked automatically
   when running an object file's global ctors.  */
 
@@ -915,6 +974,9 @@ __gcov_init (struct gcov_info *info)
 		__gcov_master.root->prev = &__gcov_root;
 	      __gcov_master.root = &__gcov_root;
 	    }
+#if GCOV_CUSTOM_RTIO
+      gcov_rtio_atexit(__gcov_exit_nomerge);
+#endif
 	}
 
       info->next = __gcov_root.list;
