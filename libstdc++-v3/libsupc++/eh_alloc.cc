@@ -50,12 +50,13 @@ extern "C" void *memset (void *, int, std::size_t);
 
 using namespace __cxxabiv1;
 
-// ??? How to control these parameters.
-
 // Guess from the size of basic types how large a buffer is reasonable.
 // Note that the basic c++ exception header has 13 pointers and 2 ints,
 // so on a system with PSImode pointers we're talking about 56 bytes
 // just for overhead.
+// To fix this:
+// Implement C function __cxx_eh_arena_size_get() in your codebase which
+// returns size (size_t) for buffer to allocate.
 
 #if INT_MAX == 32767
 # define EMERGENCY_OBJ_SIZE	128
@@ -72,6 +73,12 @@ using namespace __cxxabiv1;
 # undef EMERGENCY_OBJ_COUNT
 # define EMERGENCY_OBJ_COUNT	4
 #endif
+
+extern "C" __attribute__((weak)) size_t __cxx_eh_arena_size_get(void)
+{
+  return EMERGENCY_OBJ_SIZE * EMERGENCY_OBJ_COUNT
+         + EMERGENCY_OBJ_COUNT * sizeof (__cxa_dependent_exception);
+}
 
 namespace __gnu_cxx
 {
@@ -116,11 +123,8 @@ namespace
 
   pool::pool()
     {
-      // Allocate the arena - we could add a GLIBCXX_EH_ARENA_SIZE environment
-      // to make this tunable.
-      arena_size = (EMERGENCY_OBJ_SIZE * EMERGENCY_OBJ_COUNT
-		    + EMERGENCY_OBJ_COUNT * sizeof (__cxa_dependent_exception));
-      arena = (char *)malloc (arena_size);
+      arena_size = __cxx_eh_arena_size_get();
+      arena = arena_size ? (char *)malloc (arena_size) : NULL;
       if (!arena)
 	{
 	  // If the allocation failed go without an emergency pool.
