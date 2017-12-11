@@ -2313,7 +2313,10 @@ static void handle_fix_reorg_insn(rtx_insn *insn) {
 			}
 		}
 	} else if (attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
-		store_insn = NULL; //Pipeline gets cleared; any load is inconsequential
+		enum attr_condjmp attr_condjmp = get_attr_condjmp(insn);
+		if (attr_condjmp == CONDJMP_UNCOND) {
+			store_insn = NULL; //Pipeline gets cleared; any load is inconsequential
+		}
 	} else {
 		insns_since_store++;
 	}

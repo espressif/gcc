@@ -94,6 +94,10 @@
   "unknown,none,QI,HI,SI,DI,SF,DF,BL"
   (const_string "unknown"))
 
+(define_attr "condjmp"
+  "na,cond,uncond"
+  (const_string "na"))
+
 (define_attr "length" "" (const_int 1))
 
 ;; Describe a user's asm statement.
@@ -1268,6 +1272,7 @@
 }
   [(set_attr "type"	"jump,jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3,3")])
 
 (define_insn "*bfalse"
@@ -1283,6 +1288,7 @@
 }
   [(set_attr "type"	"jump,jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3,3")])
 
 (define_insn "*ubtrue"
@@ -1298,6 +1304,7 @@
 }
   [(set_attr "type"	"jump,jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3,3")])
 
 (define_insn "*ubfalse"
@@ -1313,6 +1320,7 @@
 }
   [(set_attr "type"	"jump,jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3,3")])
 
 ;; Branch patterns for bit testing
@@ -1333,6 +1341,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn "*bitfalse"
@@ -1351,6 +1360,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn "*masktrue"
@@ -1372,6 +1382,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn "*maskfalse"
@@ -1393,6 +1404,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 
@@ -1417,6 +1429,7 @@
   "loop\t%0, %l1_LEND"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn "zero_cost_loop_end"
@@ -1453,6 +1466,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"0")])
 
 (define_split
@@ -1650,6 +1664,7 @@
   "j\t%l0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 (define_expand "indirect_jump"
@@ -1671,6 +1686,7 @@
   "jx\t%0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 
@@ -1700,6 +1716,7 @@
   "jx\t%0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 
@@ -1732,6 +1749,7 @@
 }
   [(set_attr "type"	"call")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 (define_expand "call_value"
@@ -1758,6 +1776,7 @@
 }
   [(set_attr "type"	"call")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 (define_insn "entry"
@@ -1781,6 +1800,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"2")])
 
 
@@ -2067,6 +2087,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn "*boolfalse"
@@ -2085,6 +2106,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 
