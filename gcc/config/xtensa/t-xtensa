@@ -17,3 +17,6 @@
 # <http://www.gnu.org/licenses/>.
 
 $(out_object_file): gt-xtensa.h
+
+MULTILIB_OPTIONS = mfix-esp32-psram-cache-issue
+MULTILIB_DIRNAMES = esp32-psram
