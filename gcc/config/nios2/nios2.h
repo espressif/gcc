@@ -63,11 +63,11 @@
 #if TARGET_ENDIAN_DEFAULT == 0
 # define ASM_SPEC "%{!meb:-EL} %{meb:-EB} %{march=*:-march=%*}"
 # define LINK_SPEC_ENDIAN "%{!meb:-EL} %{meb:-EB}"
-# define MULTILIB_DEFAULTS { "EL" }
+# define MULTILIB_DEFAULTS { "mel" }
 #else
 # define ASM_SPEC "%{!mel:-EB} %{mel:-EL} %{march=*:-march=%*}"
 # define LINK_SPEC_ENDIAN "%{!mel:-EB} %{mel:-EL}"
-# define MULTILIB_DEFAULTS { "EB" }
+# define MULTILIB_DEFAULTS { "meb" }
 #endif
 
 #define LINK_SPEC LINK_SPEC_ENDIAN \
