@@ -145,7 +145,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define GTHREAD_USE_WEAK 1
 #endif
 #endif
+#if __ANDROID__
+#include "gthr-posix.h"
+#else
 #include "gthr-default.h"
+#endif
 
 #ifndef HIDE_EXPORTS
 #pragma GCC visibility pop
