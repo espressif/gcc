@@ -28,6 +28,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #if !HAVE_UNLINK_OPEN_FILE
 #include <string.h>
 #endif
+#include <stdlib.h>
 
 typedef enum
 { CLOSE_DELETE, CLOSE_KEEP, CLOSE_UNSPECIFIED }
