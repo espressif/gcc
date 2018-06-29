@@ -21,6 +21,9 @@ AC_DEFUN([GCC_ENABLE_PLUGINS],
    pluginlibs=
    plugin_check=yes
 
+   PICFLAG="-fPIC"
+   UNDEFINEDPREAMBLE="extern int X;"
+   UNDEFINEDCODE="return X == 0;"
    case "${host}" in
      *-*-mingw*)
        # Since plugin support under MinGW is not as straightforward as on
@@ -42,6 +45,11 @@ AC_DEFUN([GCC_ENABLE_PLUGINS],
        else
 	 export_sym_check=
        fi
+     ;;
+     *-*-mingw*|*-*-cygwin*|*-*-msys*)
+       PICFLAG=""
+       UNDEFINEDPREAMBLE=""
+       UNDEFINEDCODE=""
      ;;
      *)
        if test x$build = x$host; then
@@ -94,17 +102,17 @@ AC_DEFUN([GCC_ENABLE_PLUGINS],
      case "${host}" in
        *-*-darwin*)
 	 CFLAGS=`echo $CFLAGS | sed s/-mdynamic-no-pic//g`
-	 CFLAGS="$CFLAGS -fPIC"
+	 CFLAGS="$CFLAGS ${PICFLAG}"
 	 LDFLAGS="$LDFLAGS -shared -undefined dynamic_lookup"
        ;;
        *)
-	 CFLAGS="$CFLAGS -fPIC"
-	 LDFLAGS="$LDFLAGS -fPIC -shared"
+	 CFLAGS="$CFLAGS ${PICFLAG}"
+	 LDFLAGS="$LDFLAGS ${PICFLAG} -shared"
        ;;
      esac
-     AC_MSG_CHECKING([for -fPIC -shared])
+     AC_MSG_CHECKING([for ${PICFLAG} -shared])
      AC_TRY_LINK(
-       [extern int X;],[return X == 0;],
+       [${UNDEFINEDPREAMBLE}],[${UNDEFINEDCODE}],
        [AC_MSG_RESULT([yes]); have_pic_shared=yes],
        [AC_MSG_RESULT([no]); have_pic_shared=no])
      if test x"$have_pic_shared" != x"yes" -o x"$ac_cv_search_dlopen" = x"no"; then
