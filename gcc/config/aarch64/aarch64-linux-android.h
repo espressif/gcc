@@ -56,4 +56,8 @@
 #define ENDFILE_SPEC \
   LINUX_OR_ANDROID_LD (GNU_USER_TARGET_ENDFILE_SPEC, ANDROID_ENDFILE_SPEC)
 
+#ifdef IN_LIBGCC2
+#define LIBGCC2_UNWIND_ATTRIBUTE __attribute__((visibility("default")))
+#endif
+
 #endif  /* GCC_AARCH64_LINUX_ANDROID_H */
