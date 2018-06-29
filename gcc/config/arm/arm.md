@@ -8633,7 +8633,7 @@
    (match_operand:SI 2 "const_int_operand" "")	; total range
    (match_operand:SI 3 "" "")			; table label
    (match_operand:SI 4 "" "")]			; Out of range label
-  "(TARGET_32BIT || optimize_size || flag_pic) && !target_pure_code"
+  "(TARGET_32BIT || ((optimize_size || flag_pic) && !inline_thumb1_jump_table)) && !target_pure_code"
   "
   {
     enum insn_code code;

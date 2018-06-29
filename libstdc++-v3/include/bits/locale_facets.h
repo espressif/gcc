@@ -47,6 +47,20 @@
 #include <ext/numeric_traits.h>
 #include <bits/streambuf_iterator.h>
 
+#if !__clang__ && __GNUC__ == 4 && __GNUC_MINOR__ == 9 && __i386__
+// CrystaX: for some reason, x86 gcc-4.9 makes ctype<char>::do_widen() and
+// ctype<char>::_M_widen_init() methods working wrong if optimization enabled.
+// For ctype<char>::do_widen(), values of passed arguments (__lo, __hi and __to)
+// are completely messed up and don't correspond to passed values. In case if
+// we disable optimization for those methods, things become correct so we apply
+// this workaround here for a time.
+// TODO: figure out what exactly wrong here - is it bug in GCC optimization
+// algorithm or smth else?
+#define __CRYSTAX_X86_DONT_OPTIMIZE __attribute__((optimize(0)))
+#else
+#define __CRYSTAX_X86_DONT_OPTIMIZE
+#endif
+
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
@@ -1104,7 +1118,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  @return  @a __hi.
       */
       virtual const char*
-      do_widen(const char* __lo, const char* __hi, char_type* __to) const
+      do_widen(const char* __lo, const char* __hi, char_type* __to) const __CRYSTAX_X86_DONT_OPTIMIZE
       {
 	if (__builtin_expect(__hi != __lo, true))
 	  __builtin_memcpy(__to, __lo, __hi - __lo);
@@ -1167,7 +1181,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     private:
       void _M_narrow_init() const;
-      void _M_widen_init() const;
+      void _M_widen_init() const __CRYSTAX_X86_DONT_OPTIMIZE;
     };
 
 #ifdef _GLIBCXX_USE_WCHAR_T

@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
     /* The GNU C++ standard library requires this.  */		\
     if (c_dialect_cxx ())					\
       builtin_define ("_GNU_SOURCE");				\
+    ANDROID_TARGET_OS_CPP_BUILTINS();				\
   } while (0)
 
 #undef SUBTARGET_CPP_SPEC
@@ -71,7 +72,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef SUBTARGET_ASM_SPEC
 #define SUBTARGET_ASM_SPEC \
-  "%{!mno-abicalls:%{mplt:-call_nonpic;:-KPIC}}"
+  "%{!mno-abicalls:%{mplt:-call_nonpic;:-KPIC}} " \
+  LINUX_OR_ANDROID_CC ("", ANDROID_ASM_SPEC)
 
 /* The MIPS assembler has different syntax for .set. We set it to
    .dummy to trap any errors.  */
@@ -120,7 +122,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #endif
 
 #define LINUX_DRIVER_SELF_SPECS \
-  NO_SHARED_SPECS							\
+  LINUX_OR_ANDROID_CC(NO_SHARED_SPECS, "")                              \
   MARCH_MTUNE_NATIVE_SPECS,						\
   /* -mplt has no effect without -mno-shared.  Simplify later		\
      specs handling by removing a redundant option.  */			\
