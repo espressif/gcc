@@ -53,11 +53,11 @@ along with GCC; see the file COPYING3.  If not see
   %{mno-auto-litpools:--no-auto-litpools}"
 
 #undef LIB_SPEC
-#define LIB_SPEC "-lc -lsim -lc -lhandlers-sim -lhal"
+#define LIB_SPEC "-lc -lnosys -lc"
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
-  "crt1-sim%O%s crt0%O%s crti%O%s crtbegin%O%s _vectors%O%s"
+  "crt0%O%s crti%O%s crtbegin%O%s"
 
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend%O%s crtn%O%s"  
