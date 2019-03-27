@@ -1,95 +1,82 @@
 stages:
   - build
-  - test
   - manual_action
+  - test
 
 image: $CI_DOCKER_REGISTRY/esp32-toolchain
 
 variables:
   GIT_DEPTH: "1"
 
-  ARCHIVE_TOOL: "tar cJf"
-  UNARCHIVE_TOOL: "tar xf"
-  ARCHIVE_EXT: "tar.xz"
-
   CTNG_CONF_TARGET: xtensa-esp32-elf
-  CTNG_DIR: ${CTNG_CONF_TARGET}
-  CTNG_ARCHIVE: ${CTNG_CONF_TARGET}-gcc${CI_COMMIT_SHA}.${ARCHIVE_EXT}
+  CTNG_ARCHIVE: ${CTNG_CONF_TARGET}-gcc-g${CI_COMMIT_SHA}.tar.xz
+
+.use_ci_tools: &use_ci_tools |
+  curl -sSL ${CIT_LOADER_URL} -o cit_loader.sh && sh cit_loader.sh
+  source citools/import_functions
+  source citools/crosstool_develop
 
 .add_gitlab_key: &add_gitlab_key |
   cit_add_ssh_key "${GITLAB_KEY}"
 
-# Get HEAD of GCC sources
-.get_gcc: &get_gcc |
-  TMP_FORMAT="tar.gz"
-  TMP_PREFIX="gcc-local"
-  TMP_GCC_NAME="${TMP_PREFIX}.${TMP_FORMAT}"
-  GCC_LOCAL_FILE=${PWD}/${TMP_GCC_NAME}
-  git archive --format=${TMP_FORMAT} --prefix="${TMP_PREFIX}/" -o ${GCC_LOCAL_FILE} ${CI_COMMIT_SHA}
-  unset TMP_GCC_NAME TMP_PREFIX TMP_FORMAT
-
-# Build ct-ng with $GCC_LOCAL_FILE
-.build_ct_ng: &build_ct_ng |
-  MIRROR_BASE=${FILE_SERVER}/ct-ng
-  ./bootstrap
-  ./configure --enable-local
-  make
-  ./ct-ng ${CTNG_CONF_TARGET}
-  echo "# CT_LOG_PROGRESS_BAR is not set" >> .config
-  echo "# CT_PREFIX_DIR_RO is not set" >> .config
-  echo "CT_LOG_EXTRA=y" >> .config
-  echo "CT_LOG_LEVEL_MAX=\"EXTRA\"" >> .config
-  echo "CT_USE_MIRROR=y" >> .config
-  echo "CT_FORCE_MIRROR=y" >> .config
-  echo "CT_MIRROR_BASE_URL=\"${MIRROR_BASE}\"" >> .config
-  echo "CT_NEWLIB_DEVEL_URL=\"${GITLAB_SSH_SERVER}/idf/newlib-cygwin.git\"" >> .config
-  # No gcc here because using GCC_LOCAL_FILE
-  #echo "CT_GCC_DEVEL_URL=\"${GITLAB_SSH_SERVER}/idf/gcc.git\"" >> .config
-  echo "CT_BINUTILS_DEVEL_URL=\"${GITLAB_SSH_SERVER}/idf/binutils-gdb.git\"" >> .config
-  # No gdb to reduce build time
-  #echo "CT_GDB_DEVEL_URL=\"${GITLAB_SSH_SERVER}/idf/binutils-gdb.git\"" >> .config
-  echo "# CT_DEBUG_GDB is not set" >> .config
-  echo "# CT_COMP_LIBS_EXPAT is not set" >> .config
-  echo "# CT_COMP_LIBS_NCURSES is not set" >> .config
-  # To reduce build time
-  echo "# CT_CC_GCC_USE_GRAPHITE is not set" >> .config
-  echo "# CT_CC_GCC_USE_LTO is not set" >> .config
-  echo "# CT_COMP_LIBS_ISL is not set" >> .config
-  # Use GCC_LOCAL_FILE
-  sed -i '/_CUSTOM_LOCATION/d' ./scripts/upgrade.sed
-  echo "CT_GCC_SRC_CUSTOM=y" >> .config
-  echo "CT_GCC_CUSTOM_LOCATION=\"${GCC_LOCAL_FILE}\"" >> .config
-  # for docker
-  echo "CT_ALLOW_BUILD_AS_ROOT=y" >> .config
-  echo "CT_ALLOW_BUILD_AS_ROOT_SURE=y" >> .config
-  #
-  ./ct-ng oldconfig
-  ./ct-ng build
+.update_crosstool_submodules: &update_crosstool_submodules |
+  cit_git_clean_stale_submodules
+  git config submodule.overlays.url $GITLAB_SSH_SERVER/idf/xtensa-overlays.git
+  git submodule update --init
 
 before_script:
-  # Using CI Tools
-  - curl -sSL ${CIT_LOADER_URL} -o cit_loader.sh && sh cit_loader.sh
-  - source citools/import_functions
+  - *use_ci_tools
+  - *add_gitlab_key
 
+# To test we have to build and package the toolchain based on the current version
+# of all our Crosstool-NG, GCC, Newlib projects
 build_crosstool_ng:
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-toolchain
   artifacts:
     paths:
       - ${CTNG_ARCHIVE}
+      - .config
+      - build.log
+    when: always
     expire_in: 3 day
+  after_script:
+    # 'after_script' has a new clean environment
+    - source citools/import_functions
+    - source citools/crosstool_develop
+
+    # save artifacts in any case (both failure or success)
+    - mv crosstool-NG/{.config,build.log} .
+    - cit_rm crosstool-NG
+
+    - cit_cleanup_prj_archive
   script:
-    # Prepare GCC sources
-    - *get_gcc
-    # Build and package the crosstool based on the GCC sources
+    # Create an archive of this testable GCC revision, CIT_PRJ_ARCHIVE
+    - cit_create_prj_archive
+
+    # Getting crosstool
     - *add_gitlab_key
+    - CTNG_BRANCH="-b esp-develop"
     - git clone ${CTNG_BRANCH} --depth 1 ${GITLAB_SSH_SERVER}/idf/crosstool-NG.git
     - cd crosstool-NG
-    - *build_ct_ng
+    - *update_crosstool_submodules
+
+    # Configure the crosstool
+    - cit_ct_configure
+    - echo "# CT_DEBUG_GDB is not set" >> .config
+
+    # Use the testable GCC revision from the archive
+    - sed -i '/_CUSTOM_LOCATION/d' ./scripts/upgrade.sed
+    - echo "CT_GCC_SRC_CUSTOM=y" >> .config
+    - echo "CT_GCC_CUSTOM_LOCATION=\"${CIT_PRJ_ARCHIVE}\"" >> .config
+
+    # Build
+    - cit_ct_build
+
+    # Save CT archive
     - cd builds
     - rm -v -f ${CTNG_CONF_TARGET}/build.log.bz2
-    - ${ARCHIVE_TOOL} ${CI_PROJECT_DIR}/${CTNG_ARCHIVE} ${CTNG_CONF_TARGET}
-    - ls -l ${CTNG_CONF_TARGET}/
+    - tar cJf ${CI_PROJECT_DIR}/${CTNG_ARCHIVE} ${CTNG_CONF_TARGET}
     - du -hs ${CTNG_CONF_TARGET}/*
     - ls -l ${CI_PROJECT_DIR}/${CTNG_ARCHIVE}
     - echo "***"
@@ -97,8 +84,8 @@ build_crosstool_ng:
     - echo "***"
 
 .get_toolchain: &get_toolchain |
-  ${UNARCHIVE_TOOL} ${CTNG_ARCHIVE}
-  export PATH=${CI_PROJECT_DIR}/${CTNG_DIR}/bin:${PATH}
+  tar xf ${CTNG_ARCHIVE}
+  export PATH=${CI_PROJECT_DIR}/${CTNG_CONF_TARGET}/bin:${PATH}
 
 .get_qemu: &get_qemu |
   wget --no-verbose ${FILE_SERVER}/qemu/${QEMU_ARCHVE}
@@ -115,11 +102,29 @@ testsuite:
   script:
     - *get_toolchain
     # TestSuite
-    - *add_gitlab_key
     - git clone -b feature/ci_gcc_testing --depth 1 ${GITLAB_SSH_SERVER}/idf/llvm-xtensa-testsuite.git
     - cd llvm-xtensa-testsuite
     - *get_qemu
     - ./run_torture_suite.sh
+
+esp-tests:
+  stage: test
+  image: $CI_DOCKER_REGISTRY/compiler-testsuite:1
+  dependencies:
+    - build_crosstool_ng
+  artifacts:
+    when: always
+    paths:
+      - esp-compiler-tests/*/*.log
+      - esp-compiler-tests/*/*.elf
+  script:
+    - *get_toolchain
+    - *add_gitlab_key
+    - ESP_COMPILER_TESTS_BRANCH="-b master"
+    - git clone $ESP_COMPILER_TESTS_BRANCH ${GITLAB_SSH_SERVER}/idf/esp-compiler-tests.git
+    - cd esp-compiler-tests
+    - source xtensa-esp32-profile
+    - ./run-all.sh
 
 .manual_action: &manual_action
   stage: manual_action
