@@ -128,6 +128,10 @@ along with GCC; see the file COPYING3.  If not see
 #define DOUBLE_TYPE_SIZE 64
 #define LONG_DOUBLE_TYPE_SIZE 64
 
+/* Use int, instead of long int, for int32_t and uint32_t.  */
+#undef STDINT_LONG32
+#define STDINT_LONG32 0
+
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
 #define POINTER_BOUNDARY 32
 
