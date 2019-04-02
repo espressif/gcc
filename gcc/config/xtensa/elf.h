@@ -53,7 +53,7 @@ along with GCC; see the file COPYING3.  If not see
   %{mno-auto-litpools:--no-auto-litpools}"
 
 #undef LIB_SPEC
-#define LIB_SPEC "-lc -lnosys"
+#define LIB_SPEC "-lc -lnosys -lc"
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
