@@ -1442,11 +1442,21 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
         ;;
     esac
 
+  elif test x"$enable_libstdcxx_time" = x"yes"; then
+    # xtensa-esp32: This sets the same settings for canadian cross and native builds
+    ac_has_clock_monotonic=yes
+    ac_has_clock_realtime=yes
+    ac_has_nanosleep=no
+    ac_has_sched_yield=yes
+
   elif test x"$enable_libstdcxx_time" != x"no"; then
 
     if test x"$enable_libstdcxx_time" = x"rt"; then
       AC_SEARCH_LIBS(clock_gettime, [rt posix4])
       AC_SEARCH_LIBS(nanosleep, [rt posix4])
+    else
+      AC_SEARCH_LIBS(clock_gettime, [posix4])
+      AC_SEARCH_LIBS(nanosleep, [posix4])
     fi
 
     case "$ac_cv_search_clock_gettime" in
@@ -1458,6 +1468,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
       ;;
     esac
 
+    AC_SEARCH_LIBS(sched_yield, [rt posix4])
 
     case "$ac_cv_search_sched_yield" in
       -lposix4*)
@@ -1479,7 +1490,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
 
     if test x"$ac_has_unistd_h" = x"yes"; then
       AC_MSG_CHECKING([for monotonic clock])
-      GCC_TRY_COMPILE_OR_LINK(
+      AC_TRY_LINK(
 	[#include <unistd.h>
 	 #include <time.h>
 	],
@@ -1492,7 +1503,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
       AC_MSG_RESULT($ac_has_clock_monotonic)
 
       AC_MSG_CHECKING([for realtime clock])
-      GCC_TRY_COMPILE_OR_LINK(
+      AC_TRY_LINK(
 	[#include <unistd.h>
 	 #include <time.h>
 	],
@@ -1505,7 +1516,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
       AC_MSG_RESULT($ac_has_clock_realtime)
 
       AC_MSG_CHECKING([for nanosleep])
-      GCC_TRY_COMPILE_OR_LINK(
+      AC_TRY_LINK(
 	[#include <unistd.h>
 	 #include <time.h>
 	],
