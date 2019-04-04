@@ -1464,6 +1464,13 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
         ac_has_sched_yield=yes
     esac
 
+  elif test x"$enable_libstdcxx_time" = x"yes"; then
+    # xtensa-esp32: This sets the same settings for canadian cross and native builds
+    ac_has_clock_monotonic=yes
+    ac_has_clock_realtime=yes
+    ac_has_nanosleep=no
+    ac_has_sched_yield=yes
+
   elif test x"$enable_libstdcxx_time" != x"no"; then
 
     if test x"$enable_libstdcxx_time" = x"rt"; then
