@@ -20828,6 +20828,13 @@ fi
         ;;
     esac
 
+  elif test x"$enable_libstdcxx_time" = x"yes"; then
+    # xtensa-esp32: This sets the same settings for canadian cross and native builds
+    ac_has_clock_monotonic=yes
+    ac_has_clock_realtime=yes
+    ac_has_nanosleep=no
+    ac_has_sched_yield=yes
+
   elif test x"$enable_libstdcxx_time" != x"no"; then
 
     if test x"$enable_libstdcxx_time" = x"rt"; then
@@ -78672,18 +78679,6 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include <sys/syscall.h>
 	   int lk;
-#if !defined(SYS_gettid)
-#define SYS_gettid __NR_gettid
-#endif
-#if !defined(SYS_futex)
-#define SYS_futex __NR_futex
-#endif
-#if !defined(SYS_gettid)
-#define SYS_gettid __NR_gettid
-#endif
-#if !defined(SYS_futex)
-#define SYS_futex __NR_futex
-#endif
 int
 main ()
 {
