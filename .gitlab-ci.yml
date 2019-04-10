@@ -85,11 +85,13 @@ build_crosstool_ng:
 
 .get_toolchain: &get_toolchain |
   tar xf ${CTNG_ARCHIVE}
+  cit_rm ${CTNG_ARCHIVE}
   export PATH=${CI_PROJECT_DIR}/${CTNG_CONF_TARGET}/bin:${PATH}
 
 .get_qemu: &get_qemu |
   wget --no-verbose ${FILE_SERVER}/qemu/${QEMU_ARCHVE}
   tar xf ${QEMU_ARCHVE}
+  cit_rm ${QEMU_ARCHVE}
   ls -l -d qemu_esp32_build
 
 testsuite:
@@ -102,6 +104,7 @@ testsuite:
   script:
     - *get_toolchain
     # TestSuite
+    - cit_rm llvm-xtensa-testsuite
     - git clone -b feature/ci_gcc_testing --depth 1 ${GITLAB_SSH_SERVER}/idf/llvm-xtensa-testsuite.git
     - cd llvm-xtensa-testsuite
     - *get_qemu
@@ -117,9 +120,15 @@ esp-tests:
     paths:
       - esp-compiler-tests/*/*.log
       - esp-compiler-tests/*/*.elf
+  variables:
+    GIT_STRATEGY: none
+  after_script:
+    - source citools/import_functions
+    - cit_rm ${CTNG_CONF_TARGET}
   script:
     - *get_toolchain
     - *add_gitlab_key
+    - cit_rm esp-compiler-tests
     - ESP_COMPILER_TESTS_BRANCH="-b master"
     - git clone $ESP_COMPILER_TESTS_BRANCH ${GITLAB_SSH_SERVER}/idf/esp-compiler-tests.git
     - cd esp-compiler-tests
