@@ -1447,9 +1447,6 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
     if test x"$enable_libstdcxx_time" = x"rt"; then
       AC_SEARCH_LIBS(clock_gettime, [rt posix4])
       AC_SEARCH_LIBS(nanosleep, [rt posix4])
-    else
-      AC_SEARCH_LIBS(clock_gettime, [posix4])
-      AC_SEARCH_LIBS(nanosleep, [posix4])
     fi
 
     case "$ac_cv_search_clock_gettime" in
@@ -1461,7 +1458,6 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
       ;;
     esac
 
-    AC_SEARCH_LIBS(sched_yield, [rt posix4])
 
     case "$ac_cv_search_sched_yield" in
       -lposix4*)
@@ -1483,7 +1479,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
 
     if test x"$ac_has_unistd_h" = x"yes"; then
       AC_MSG_CHECKING([for monotonic clock])
-      AC_TRY_LINK(
+      GCC_TRY_COMPILE_OR_LINK(
 	[#include <unistd.h>
 	 #include <time.h>
 	],
@@ -1496,7 +1492,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
       AC_MSG_RESULT($ac_has_clock_monotonic)
 
       AC_MSG_CHECKING([for realtime clock])
-      AC_TRY_LINK(
+      GCC_TRY_COMPILE_OR_LINK(
 	[#include <unistd.h>
 	 #include <time.h>
 	],
@@ -1509,7 +1505,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
       AC_MSG_RESULT($ac_has_clock_realtime)
 
       AC_MSG_CHECKING([for nanosleep])
-      AC_TRY_LINK(
+      GCC_TRY_COMPILE_OR_LINK(
 	[#include <unistd.h>
 	 #include <time.h>
 	],
