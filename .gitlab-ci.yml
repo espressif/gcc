@@ -142,6 +142,8 @@ esp-tests:
 
 upload_to_http:
   <<: *manual_action
+  tags:
+    - deploy
   dependencies:
     - build_crosstool_ng
   variables:
