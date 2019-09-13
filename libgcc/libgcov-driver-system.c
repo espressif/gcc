@@ -136,7 +136,6 @@ allocate_filename_struct (struct gcov_filename *gf)
   int strip = 0;
 
   {
-#if GCOV_CUSTOM_RTIO == 0
     /* Check if the level of dirs to strip off specified. */
     char *tmp = getenv("GCOV_PREFIX_STRIP");
     if (tmp)
@@ -146,16 +145,11 @@ allocate_filename_struct (struct gcov_filename *gf)
         if (strip < 0)
           strip = 0;
       }
-#endif
   }
   gf->strip = strip;
 
-#if GCOV_CUSTOM_RTIO == 0
   /* Get file name relocation prefix.  Non-absolute values are ignored. */
   gcov_prefix = getenv("GCOV_PREFIX");
-#else
-  gcov_prefix = NULL;
-#endif
   prefix_length = gcov_prefix ? strlen (gcov_prefix) : 0;
   
   /* Remove an unnecessary trailing '/' */
