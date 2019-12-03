@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Get Xtensa configuration settings */
 #include "xtensa-config.h"
+#include "xtensa-opts.h"
 
 /* External variables defined in xtensa.c.  */
 
