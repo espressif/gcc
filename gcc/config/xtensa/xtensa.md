@@ -120,12 +120,12 @@
 			 "nothing")
 
 (define_insn_reservation "xtensa_memory_load" 2
-			 (and (not (match_test "TARGET_ESP32_PSRAM_FIX"))
+			 (and (not (match_test "TARGET_ESP32_PSRAM_FIX_ENA"))
 			 (eq_attr "type" "load,fload"))
 			 "nothing")
 
 (define_insn_reservation "xtensa_memory_store" 1
-			 (and (not (match_test "TARGET_ESP32_PSRAM_FIX"))
+			 (and (not (match_test "TARGET_ESP32_PSRAM_FIX_ENA"))
 			 (eq_attr "type" "store,fstore"))
 			 "nothing")
 
@@ -136,12 +136,12 @@
 ;; load or store up to a pipeline length apart from each other.
 
 (define_insn_reservation "xtensa_memory_load_psram_fix" 2
-			 (and (match_test "TARGET_ESP32_PSRAM_FIX")
+			 (and (match_test "TARGET_ESP32_PSRAM_FIX_ENA")
 			 (eq_attr "type" "load,fload"))
 			 "loadstore*5")
 
 (define_insn_reservation "xtensa_memory_store_psram_fix" 1
-			 (and (match_test "TARGET_ESP32_PSRAM_FIX")
+			 (and (match_test "TARGET_ESP32_PSRAM_FIX_ENA")
 			 (eq_attr "type" "store,fstore"))
 			 "loadstore*5")
 

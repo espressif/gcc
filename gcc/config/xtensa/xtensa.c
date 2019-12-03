@@ -2329,8 +2329,7 @@ static void handle_fix_reorg_insn(rtx_insn *insn) {
 	}
 }
 
-
-static void xtensa_psram_cache_fix_reorg()
+static void xtensa_psram_cache_fix_nop_reorg()
 {
 	rtx_insn *insn, *subinsn, *next_insn;
 	for (insn = get_insns(); insn != 0; insn = next_insn) {
@@ -2345,9 +2344,55 @@ static void xtensa_psram_cache_fix_reorg()
 	}
 }
 
-//Emits a memw before every load/store instruction. Hard-handed approach to get rid
-//of any pipeline/memory issues...
-static void xtensa_insert_memw_reorg()
+
+/*
+Alternative fix to xtensa_psram_cache_fix_reorg. Tries to solve the 32-bit load/store 
+inversion by explicitly inserting a memory barrier instead of nops. Slower than nops, but 
+faster than just adding memws everywhere.
+*/
+static void handle_fix_reorg_memw(rtx_insn *insn) {
+	enum attr_type attr_type = get_attr_type (insn);
+	rtx x=XEXP(PATTERN(insn), 0);
+	if (attr_type == TYPE_STORE || attr_type == TYPE_FSTORE) {
+		//Store
+		insns_since_store = 0;
+		store_insn = insn;
+		if (attr_type == TYPE_STORE && (GET_MODE(x)==HImode || GET_MODE(x)==QImode)) {
+			//This is an 16- or 8-bit store, record it if it's not volatile already.
+			if (!MEM_VOLATILE_P(x)) last_hiqi_store=insn;
+		}
+	} else if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD) {
+		//Load
+		if (MEM_P(x) && (!MEM_VOLATILE_P(x))) {
+			if (store_insn) {
+				emit_insn_before(gen_memory_barrier(), insn);
+				store_insn=NULL;
+			}
+		}
+	} else if (attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
+		enum attr_condjmp attr_condjmp = get_attr_condjmp(insn);
+		if (attr_condjmp == CONDJMP_UNCOND) { //jump or return
+			//Unconditional jumps seem to not clear the pipeline, and there may be
+			//a load after. Need to memw if earlier code had a store.
+			if (store_insn) {
+				emit_insn_before(gen_memory_barrier(), insn);
+				store_insn = NULL;
+			}
+		}
+	} else {
+		insns_since_store++;
+	}
+	if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD || attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
+		if (last_hiqi_store) {
+			//Need to memory barrier the s8i/s16i instruction.
+			emit_insn_after(gen_memory_barrier(), last_hiqi_store);
+			last_hiqi_store=NULL;
+		}
+	}
+}
+
+
+static void xtensa_psram_cache_fix_memw_reorg()
 {
 	rtx_insn *insn, *subinsn, *next_insn;
 	for (insn = get_insns(); insn != 0; insn = next_insn) {
@@ -2356,9 +2401,100 @@ static void xtensa_insert_memw_reorg()
 		
 		if (USEFUL_INSN_P (insn) && length>0  ) {
 			FOR_EACH_SUBINSN (subinsn, insn) {
+				handle_fix_reorg_memw(subinsn);
+			}
+		}
+	}
+}
+
+
+/*
+Alternative fix to xtensa_psram_cache_fix_reorg. Tries to solve the 32-bit load/store 
+inversion by explicitly inserting a load after every store.
+
+For now, the logic is:
+- Instruction is s32i? Insert l32i from that address to the source register immediately after, plus a
+  duplicated s32i after that.
+- Instruction is s8i/s16i? Note and insert a memw before a load. (same as xtensa_psram_cache_fix_reorg)
+- If any of the args are volatile, no touchie: the memw resulting from that will fix everything.
+
+Note: debug_rtx(insn) can dump an insn in lisp-like format.
+*/
+
+static void xtensa_psram_cache_fix_dupldst_reorg()
+{
+	rtx_insn *insn, *subinsn, *next_insn;
+	rtx_insn *last_hiqi_store=NULL;
+	for (insn = get_insns(); insn != 0; insn = next_insn) {
+		next_insn = NEXT_INSN (insn);
+		int  length = get_attr_length (insn);
+		
+		if (USEFUL_INSN_P (insn) && length>0  ) {
+			FOR_EACH_SUBINSN (subinsn, insn) {
+
 				enum attr_type attr_type = get_attr_type (insn);
-				if (attr_type == TYPE_STORE || attr_type == TYPE_LOAD) {
-					emit_insn_before (gen_memory_barrier(), insn);
+				if (attr_type == TYPE_STORE || attr_type == TYPE_FSTORE) {
+					rtx x=XEXP(PATTERN(insn), 0);
+					//Store
+					if (attr_type == TYPE_STORE && (GET_MODE(x)==HImode || GET_MODE(x)==QImode)) {
+						//This is an 16- or 8-bit store, record it if it's not volatile already.
+						if (!MEM_VOLATILE_P(x)) last_hiqi_store=insn;
+					} else { //32-bit store
+						//Add a load-after-store to fix psram issues *if* var is not volatile
+						if (MEM_P(x) && (!MEM_VOLATILE_P(x))) {
+							rtx y=XEXP(PATTERN(insn), 1);
+							if (REG_P(y) && XINT(y, 0)==1) {
+								//store SP in mem? Can't movsi that back. Insert memory barrier instead.
+								emit_insn_after(gen_memory_barrier(), insn);
+							} else {
+								//add the load/store
+								//Note that the instructions will be added in the OPPOSITE order as the instructions are added between
+								//the s32i and the next instruction. So 1: s32i(insn), s32i; 2:s32i(insn), l32i, s32i.
+								emit_insn_after(gen_movsi(XEXP(PATTERN(insn), 0), XEXP(PATTERN(insn), 1)), insn); //store again
+								emit_insn_after(gen_movsi(XEXP(PATTERN(insn), 1), XEXP(PATTERN(insn), 0)), insn); //load
+							}
+						}
+					}
+				}
+
+				if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD || attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
+					if (last_hiqi_store) {
+						//Need to memory barrier the s8i/s16i instruction.
+						emit_insn_after(gen_memory_barrier(), last_hiqi_store);
+						last_hiqi_store=NULL;
+					}
+				}
+			}
+		}
+	}
+}
+
+//Emits a memw before every load/store instruction. Hard-handed approach to get rid
+//of any pipeline/memory issues...
+static void xtensa_insert_memw_reorg()
+{
+	rtx_insn *insn, *subinsn, *next_insn;
+	int had_memw=0;
+	for (insn = get_insns(); insn != 0; insn = next_insn) {
+		next_insn = NEXT_INSN (insn);
+		int length = get_attr_length (insn);
+		
+		if (USEFUL_INSN_P (insn) && length>0) {
+			FOR_EACH_SUBINSN (subinsn, insn) {
+				rtx x=XEXP(PATTERN(subinsn), 0);
+				enum attr_type attr_type = get_attr_type (subinsn);
+				if (attr_type == TYPE_STORE) {
+					if (MEM_P(x) && (!MEM_VOLATILE_P(x))) {
+						emit_insn_after(gen_memory_barrier(), subinsn);
+					}
+					had_memw=1;
+				} else if (attr_type == TYPE_LOAD) {
+					if (MEM_P(x) && (!MEM_VOLATILE_P(x)) && !had_memw) {
+						emit_insn_before(gen_memory_barrier(), subinsn);
+					}
+					had_memw=0;
+				} else {
+					had_memw=0;
 				}
 			}
 		}
@@ -2366,11 +2502,20 @@ static void xtensa_insert_memw_reorg()
 }
 
 static unsigned int xtensa_machine_reorg(void) {
-	if (TARGET_ESP32_PSRAM_FIX) {
-		xtensa_psram_cache_fix_reorg();
-	}
-	if (TARGET_ESP32_ALWAYS_MEMMARRIER) {
+	if (TARGET_ESP32_ALWAYS_MEMBARRIER) {
 		xtensa_insert_memw_reorg();
+	}
+	if (TARGET_ESP32_PSRAM_FIX_ENA) {
+		if (esp32_psram_fix_strat==ESP32_PSRAM_FIX_DUPLDST) {
+			xtensa_psram_cache_fix_dupldst_reorg();
+		} else if (esp32_psram_fix_strat==ESP32_PSRAM_FIX_MEMW) {
+			xtensa_psram_cache_fix_memw_reorg();
+		} else if (esp32_psram_fix_strat==ESP32_PSRAM_FIX_NOPS) {
+			xtensa_psram_cache_fix_nop_reorg();
+		} else {
+			//default to memw (note: 5.2.x defaulted to nops)
+			xtensa_psram_cache_fix_memw_reorg();
+		}
 	}
 	return 0;
 }
@@ -2381,7 +2526,7 @@ namespace {
 const pass_data pass_data_xtensa_psram_nops =
 {
   RTL_PASS, /* type */
-  "xtensa-psram-nops", /* name */
+  "xtensa-psram-adj", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_MACH_DEP, /* tv_id */
   0, /* properties_required */
