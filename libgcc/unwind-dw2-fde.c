@@ -79,6 +79,12 @@ static __gthread_mutex_t object_mutex;
 #endif
 #endif
 
+static unsigned char enable_exception_fde_sorting = 1;
+
+void _Unwind_SetEnableExceptionFdeSorting(unsigned char enable) {
+    enable_exception_fde_sorting = enable;
+}
+
 /* Called from crtbegin.o to register the unwind info for an object.  */
 
 void
@@ -798,6 +804,9 @@ init_object (struct object* ob)
       if (ob->s.b.count != count)
 	ob->s.b.count = 0;
     }
+
+  if (!enable_exception_fde_sorting)
+    return;
 
   if (!start_fde_sort (&accu, count))
     return;
