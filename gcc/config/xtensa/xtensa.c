@@ -2298,13 +2298,13 @@ static void handle_fix_reorg_insn(rtx_insn *insn) {
 			}
 			store_insn = NULL;
 		}
+	} else if (last_hiqi_store) {
+		//Need to memory barrier the s8i/s16i instruction.
+		emit_insn_before(gen_memory_barrier(), insn);
+		last_hiqi_store = NULL;
+		store_insn = NULL;
 	} else if (attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
-		if (last_hiqi_store) {
-			//Need to memory barrier the s8i/s16i instruction.
-			emit_insn_before(gen_memory_barrier(), insn);
-			last_hiqi_store = NULL;
-			store_insn = NULL;
-		} else if (get_attr_condjmp(insn) == CONDJMP_UNCOND) { //jump or return
+		if (get_attr_condjmp(insn) == CONDJMP_UNCOND) { //jump or return
 			//Unconditional jumps seem to not clear the pipeline, and there may be
 			//a load after. Need to nop if earlier code had a store.
 			if (store_insn) {
@@ -2369,19 +2369,18 @@ static void handle_fix_reorg_memw(rtx_insn *insn) {
 			store_insn = NULL;
 			last_hiqi_store = NULL;
 		}
+	} else if (last_hiqi_store) {
+		// not a store instruction, put in memw now
+		emit_insn_before(gen_memory_barrier(), insn);
+		last_hiqi_store = NULL;
+		store_insn = NULL;
 	} else if (attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
-		if (last_hiqi_store) {
-			//Need to memory barrier the s8i/s16i instruction.
-			emit_insn_before(gen_memory_barrier(), insn);
-			last_hiqi_store = NULL;
-			store_insn = NULL;
-		} else if (get_attr_condjmp(insn) == CONDJMP_UNCOND) { //jump or return
+		if (get_attr_condjmp(insn) == CONDJMP_UNCOND) {
 			//Unconditional jumps seem to not clear the pipeline, and there may be
 			//a load after. Need to memw if earlier code had a store.
 			if (store_insn) {
 				emit_insn_before(gen_memory_barrier(), insn);
 				store_insn = NULL;
-				last_hiqi_store = NULL;
 			}
 		}
 	}
