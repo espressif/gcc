@@ -41,3 +41,11 @@ typedef struct
   _Unwind_Word signal_ra;
 } _Unwind_FrameState;
 
+/**
+ * Enable/disable workaround for exception crashes on ESP32.
+ *
+ * Per default workaround is disabled.
+ *
+ * @param enable enable workaround if != 0, disable workaround if 0
+ */
+void _Unwind_SetNoFunctionContextInstall(unsigned char enable);
