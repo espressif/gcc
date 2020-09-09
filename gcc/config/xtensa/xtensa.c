@@ -2268,14 +2268,13 @@ const char* attrstr[]={"TYPE_UNKNOWN", "TYPE_JUMP",
 
 static void handle_fix_reorg_insn(rtx_insn *insn) {
 	enum attr_type attr_type = get_attr_type (insn);
-	rtx x=XEXP(PATTERN(insn), 0);
 	if (attr_type == TYPE_STORE || attr_type == TYPE_FSTORE) {
+		rtx x=XEXP(PATTERN(insn), 0);
 		//Store
 		insns_since_store = 0;
 		store_insn = insn;
 		if (attr_type == TYPE_STORE && (GET_MODE(x)==HImode || GET_MODE(x)==QImode)) {
 			//This is an 16- or 8-bit store, record it.
-			//volatile stores have memw inserted before rather than after the store.
 			last_hiqi_store=insn;
 		} else {
 			//32-bit store. This store undoes the possibility of badness in earlier 8/16-bit stores
@@ -2284,49 +2283,30 @@ static void handle_fix_reorg_insn(rtx_insn *insn) {
 		}
 	} else if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD) {
 		//Load
-		if (last_hiqi_store) {
-			if (!MEM_VOLATILE_P(x)) { // volatile already inserts memw
-				emit_insn_before(gen_memory_barrier(), insn);
+		if (store_insn) {
+			while (insns_since_store++ < LOAD_STORE_OFF) {
+				emit_insn_before (gen_nop(), insn);
 			}
-			store_insn = NULL;
-			last_hiqi_store = NULL;
-		} else if (store_insn) {
-			if (!MEM_VOLATILE_P(x)) { // volatile already inserts memw
-				while (insns_since_store++ < LOAD_STORE_OFF) {
-					emit_insn_before (gen_nop(), insn);
-				}
-			}
-			store_insn = NULL;
 		}
-	} else if (last_hiqi_store) {
-		//Need to memory barrier the s8i/s16i instruction.
-		emit_insn_before(gen_memory_barrier(), insn);
-		last_hiqi_store = NULL;
-		store_insn = NULL;
 	} else if (attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
-		if (get_attr_condjmp(insn) == CONDJMP_UNCOND) { //jump or return
-			//Unconditional jumps seem to not clear the pipeline, and there may be
-			//a load after. Need to nop if earlier code had a store.
-			if (store_insn) {
-				while (insns_since_store++ < LOAD_STORE_OFF) {
-					emit_insn_before (gen_nop(), insn);
-				}
-				store_insn = NULL;
-			}
-		} else {
-			insns_since_store++;
+		enum attr_condjmp attr_condjmp = get_attr_condjmp(insn);
+		if (attr_condjmp == CONDJMP_UNCOND) {
+			store_insn = NULL; //Pipeline gets cleared; any load is inconsequential
 		}
 	} else {
 		insns_since_store++;
+	}
+	if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD || attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
+		if (last_hiqi_store) {
+			//Need to memory barrier the s8i/s16i instruction.
+			emit_insn_after(gen_memory_barrier(), last_hiqi_store);
+			last_hiqi_store=NULL;
+		}
 	}
 }
 
 static void xtensa_psram_cache_fix_nop_reorg()
 {
-	insns_since_store = 0;
-	store_insn = NULL;
-	last_hiqi_store = NULL;
-
 	rtx_insn *insn, *subinsn, *next_insn;
 	for (insn = get_insns(); insn != 0; insn = next_insn) {
 		next_insn = NEXT_INSN (insn);
@@ -2351,31 +2331,23 @@ static void handle_fix_reorg_memw(rtx_insn *insn) {
 	rtx x=XEXP(PATTERN(insn), 0);
 	if (attr_type == TYPE_STORE || attr_type == TYPE_FSTORE) {
 		//Store
+		insns_since_store = 0;
 		store_insn = insn;
 		if (attr_type == TYPE_STORE && (GET_MODE(x)==HImode || GET_MODE(x)==QImode)) {
-			//This is an 16- or 8-bit store, record it.
-			//volatile stores have memw inserted before rather than after the store.
-			last_hiqi_store = insn;
-		} else if (MEM_VOLATILE_P(x)) {
-			// volatile inserts memw
-			last_hiqi_store = NULL;
+			//This is an 16- or 8-bit store, record it if it's not volatile already.
+			if (!MEM_VOLATILE_P(x)) last_hiqi_store=insn;
 		}
 	} else if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD) {
 		//Load
-		if (store_insn) {
-			if (!MEM_VOLATILE_P(x)) { // volatile already inserts memw
+		if (MEM_P(x) && (!MEM_VOLATILE_P(x))) {
+			if (store_insn) {
 				emit_insn_before(gen_memory_barrier(), insn);
+				store_insn=NULL;
 			}
-			store_insn = NULL;
-			last_hiqi_store = NULL;
 		}
-	} else if (last_hiqi_store) {
-		// not a store instruction, put in memw now
-		emit_insn_before(gen_memory_barrier(), insn);
-		last_hiqi_store = NULL;
-		store_insn = NULL;
 	} else if (attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
-		if (get_attr_condjmp(insn) == CONDJMP_UNCOND) {
+		enum attr_condjmp attr_condjmp = get_attr_condjmp(insn);
+		if (attr_condjmp == CONDJMP_UNCOND) { //jump or return
 			//Unconditional jumps seem to not clear the pipeline, and there may be
 			//a load after. Need to memw if earlier code had a store.
 			if (store_insn) {
@@ -2383,14 +2355,21 @@ static void handle_fix_reorg_memw(rtx_insn *insn) {
 				store_insn = NULL;
 			}
 		}
+	} else {
+		insns_since_store++;
+	}
+	if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD || attr_type == TYPE_JUMP || attr_type == TYPE_CALL) {
+		if (last_hiqi_store) {
+			//Need to memory barrier the s8i/s16i instruction.
+			emit_insn_after(gen_memory_barrier(), last_hiqi_store);
+			last_hiqi_store=NULL;
+		}
 	}
 }
 
+
 static void xtensa_psram_cache_fix_memw_reorg()
 {
-	store_insn = NULL;
-	last_hiqi_store = NULL;
-
 	rtx_insn *insn, *subinsn, *next_insn;
 	for (insn = get_insns(); insn != 0; insn = next_insn) {
 		next_insn = NEXT_INSN (insn);
