@@ -56,8 +56,6 @@
 
 #define XTENSA_RA_FIELD_MASK 0x3FFFFFFF
 
-static unsigned char enable_no_function_context_install = 0;
-
 /* This is the register and unwind state for a particular frame.  This
    provides the information necessary to unwind up past a frame and return
    to its caller.  */
@@ -91,10 +89,6 @@ union unaligned
 {
   void *p;
 } __attribute__ ((packed));
-
-void _Unwind_SetNoFunctionContextInstall(unsigned char enable) {
-    enable_no_function_context_install = enable;
-}
 
 static void uw_update_context (struct _Unwind_Context *, _Unwind_FrameState *);
 static _Unwind_Reason_Code uw_frame_state_for (struct _Unwind_Context *,
@@ -518,43 +512,12 @@ uw_install_context_1 (struct _Unwind_Context *current,
   return 0;
 }
 
-/* This is a macro to prevent window underlows from happening while the
-   new context is installed already.
-   The for loop copies only the first two register chunks because
-   eh_return insn assumes a window size of 8, so don't bother copying
-   the save areas for registers a8-a15 since they won't be reloaded.  */
-#define uw_install_context_2(CURRENT, TARGET)                        \
-  do                                                                 \
-    {                                                                \
-      for (int i = 0; i < 2; ++i)                                    \
-        {                                                            \
-          unsigned char *c = (unsigned char*) (CURRENT)->reg[i];     \
-          unsigned char *t = (unsigned char*) (TARGET)->reg[i];      \
-          if (t && c && t != c)                                      \
-            {                                                        \
-              for (size_t j = 0; j < 4 * sizeof (_Unwind_Word); j++) \
-                {                                                    \
-                  c[j] = t[j];                                       \
-                }                                                    \
-            }                                                        \
-        }                                                            \
-    }                                                                \
-  while (0)
-
-#define uw_install_context_no_fn(CURRENT, TARGET, FRAMES)				 \
-  do									 \
-    {									 \
-      uw_install_context_2 ((CURRENT), (TARGET));		 \
-      void *handler = __builtin_frob_return_addr ((TARGET)->ra);	 \
-      __builtin_eh_return (0, handler);				 \
-    }									 \
-  while (0)
-
 static inline _Unwind_Ptr
 uw_identify_context (struct _Unwind_Context *context)
 {
   return _Unwind_GetCFA (context);
 }
+
 
 #include "unwind.inc"
 

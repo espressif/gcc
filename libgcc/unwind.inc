@@ -137,14 +137,7 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
   if (code != _URC_INSTALL_CONTEXT)
     return code;
 
-  if (enable_no_function_context_install)
-    {
-      uw_install_context_no_fn (&this_context, &cur_context, frames);
-    }
-  else
-    {
-      uw_install_context (&this_context, &cur_context, frames);
-    }
+  uw_install_context (&this_context, &cur_context, frames);
 }
 
 
