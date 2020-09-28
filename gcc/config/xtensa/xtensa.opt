@@ -67,11 +67,11 @@ Psram cache fix strategies (for use with -mfix-esp32-psram-cache-strategy= optio
 
 EnumValue
 Enum(esp32_psram_fix_type) String(dupldst) Value(ESP32_PSRAM_FIX_DUPLDST)
-Fix esp32 psram cache issue by duplicating stores and non-word loads. Default workaround.
+Fix esp32 psram cache issue by duplicating stores and non-word loads.
 
 EnumValue
 Enum(esp32_psram_fix_type) String(memw) Value(ESP32_PSRAM_FIX_MEMW)
-Fix esp32 psram cache issue by inserting memory barriers in critical places (alternative workaround).
+Fix esp32 psram cache issue by inserting memory barriers in critical places. Default workaround.
 
 EnumValue
 Enum(esp32_psram_fix_type) String(nops) Value(ESP32_PSRAM_FIX_NOPS)
