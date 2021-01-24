@@ -37,7 +37,7 @@
 #pragma GCC diagnostic ignored "-Wpedantic" // include_next
 
 #undef __need___va_list
-#include_next <stdarg.h>
+#include <stdarg.h>
 
 #pragma GCC diagnostic pop
 

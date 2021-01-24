@@ -41,7 +41,7 @@
 #pragma GCC diagnostic ignored "-Wpedantic" // include_next
 
 #if _GLIBCXX_HAVE_WCHAR_H
-#include_next <wchar.h>
+#include <wchar.h>
 #endif
 
 #pragma GCC diagnostic pop

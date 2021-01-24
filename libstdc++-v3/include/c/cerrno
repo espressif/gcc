@@ -46,7 +46,7 @@
 #pragma GCC diagnostic ignored "-Wpedantic" // include_next
 
 #include <bits/c++config.h>
-#include_next <errno.h>
+#include <errno.h>
 
 #pragma GCC diagnostic pop
 
