@@ -37,7 +37,7 @@
 #pragma GCC diagnostic ignored "-Wpedantic" // include_next
 
 #include <bits/c++config.h>
-#include_next <float.h>
+#include <float.h>
 
 #pragma GCC diagnostic pop
 
