@@ -36,7 +36,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic" // include_next
 
-#include_next <stdio.h>
+#include <stdio.h>
 
 #pragma GCC diagnostic pop
 
