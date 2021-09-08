@@ -25,12 +25,14 @@ along with GCC; see the file COPYING3.  If not see
 %{shared}"
 
 /* Link against Newlib libraries, because the ELF backend assumes Newlib.
-   Handle the circular dependence between libc and libgloss. */
+   Handle the circular dependence between libc and nosys. */
 #undef  LIB_SPEC
-#define LIB_SPEC "--start-group -lc %{!specs=nosys.specs:-lgloss} --end-group"
+#define LIB_SPEC "-lc -lnosys -lc"
 
+/* crti.S is empty */
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC "crt0%O%s crtbegin%O%s"
 
+/* crtn.S is empty */
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend%O%s"
