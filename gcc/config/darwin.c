@@ -128,7 +128,7 @@ int emit_aligned_common = false;
    DIRECTIVE is as for output_section_asm_op.  */
 
 static void
-output_objc_section_asm_op (const void *directive)
+output_objc_section_asm_op (const char *directive)
 {
   static bool been_here = false;
 
