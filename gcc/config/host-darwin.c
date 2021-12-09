@@ -44,7 +44,7 @@ darwin_gt_pch_get_address (size_t sz, int fd ATTRIBUTE_UNUSED)
    pch_address_space beyond SZ.  */
 
 int
-darwin_gt_pch_use_address (void *addr, size_t sz, int fd, size_t off)
+darwin_gt_pch_use_address (void *&addr, size_t sz, int fd, size_t off)
 {
   const size_t pagesize = getpagesize();
   void *mmap_result;

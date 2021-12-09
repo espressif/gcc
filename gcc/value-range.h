@@ -376,8 +376,8 @@ gt_pch_nx (int_range<N> *x, gt_pointer_operator op, void *cookie)
 {
   for (unsigned i = 0; i < N; ++i)
     {
-      op (&x->m_ranges[i * 2], cookie);
-      op (&x->m_ranges[i * 2 + 1], cookie);
+      op (&x->m_ranges[i * 2], NULL, cookie);
+      op (&x->m_ranges[i * 2 + 1], NULL, cookie);
     }
 }
 
