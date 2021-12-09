@@ -77,5 +77,19 @@ darwin_gt_pch_use_address (void *&addr, size_t sz, int fd, size_t off)
       gcc_assert (!ret || mmap_result == addr);
     }
 
-  return ret;
+  if (lseek (fd, off, SEEK_SET) == (off_t) -1)
+    return -1;
+
+  while (sz)
+    {
+      ssize_t nbytes;
+
+      nbytes = read (fd, mapped_addr, MIN (sz, (size_t) -1 >> 1));
+      if (nbytes <= 0)
+	return -1;
+      mapped_addr = (char *) mapped_addr + nbytes;
+      sz -= nbytes;
+    }
+
+  return 1;
 }
