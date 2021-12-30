@@ -3129,6 +3129,11 @@ xstormy16-*-elf)
 	extra_options=stormy16/stormy16.opt
 	tmake_file="stormy16/t-stormy16"
 	;;
+xtensa*-esp32-elf*)
+	tm_file="${tm_file} dbxelf.h elfos.h newlib-stdint.h xtensa/elf.h"
+	tmake_file="${tmake_file} xtensa/t-xtensa-psram-fix"
+	extra_options="${extra_options} xtensa/elf.opt"
+	;;
 xtensa*-*-elf*)
 	tm_file="${tm_file} dbxelf.h elfos.h newlib-stdint.h xtensa/elf.h"
 	extra_options="${extra_options} xtensa/elf.opt"
