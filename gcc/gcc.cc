@@ -10305,11 +10305,19 @@ getenv_spec_function (int argc, const char **argv)
   char *ptr;
   size_t len;
 
-  if (argc != 2)
+  if (argc != 2 && argc != 3)
     return NULL;
 
   varname = argv[0];
   value = env.get (varname);
+
+  if (!value && argc == 3)
+    {
+      value = argv[2];
+      result = XNEWVAR(char, strlen(value) + 1);
+      strcpy(result, value);
+      return result;
+    }
 
   /* If the variable isn't defined and this is allowed, craft our expected
      return value.  Assume variable names used in specs strings don't contain
