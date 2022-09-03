@@ -701,6 +701,8 @@ esac
 # Common C libraries.
 tm_defines="$tm_defines LIBC_GLIBC=1 LIBC_UCLIBC=2 LIBC_BIONIC=3 LIBC_MUSL=4"
 
+default_libc=""
+
 # 32-bit x86 processors supported by --with-arch=.  Each processor
 # MUST be separated by exactly one space.
 x86_archs="athlon athlon-4 athlon-fx athlon-mp athlon-tbird \
@@ -917,16 +919,16 @@ case ${target} in
   esac
   case $target in
     *-*-*android*)
-      tm_defines="$tm_defines DEFAULT_LIBC=LIBC_BIONIC"
+      default_libc=LIBC_BIONIC
       ;;
     *-*-*uclibc* | *-*-uclinuxfdpiceabi)
-      tm_defines="$tm_defines DEFAULT_LIBC=LIBC_UCLIBC"
+      default_libc=LIBC_UCLIBC
       ;;
     *-*-*musl*)
-      tm_defines="$tm_defines DEFAULT_LIBC=LIBC_MUSL"
+      default_libc=LIBC_MUSL
       ;;
     *)
-      tm_defines="$tm_defines DEFAULT_LIBC=LIBC_GLIBC"
+      default_libc=LIBC_GLIBC
       ;;
   esac
   # Assume that glibc or uClibc or Bionic are being used and so __cxa_atexit
@@ -1041,7 +1043,8 @@ case ${target} in
   case ${enable_threads} in
     "" | yes | posix) thread_file='posix' ;;
   esac
-  tm_defines="$tm_defines DEFAULT_LIBC=LIBC_UCLIBC SINGLE_LIBC"
+  tm_defines="$tm_defines SINGLE_LIBC"
+  default_libc=LIBC_UCLIBC
   ;;
 *-*-rdos*)
   use_gcc_stdint=wrap
@@ -1727,13 +1730,13 @@ csky-*-*)
 
 		case ${target} in
 		    csky-*-linux-gnu*)
-			tm_defines="$tm_defines DEFAULT_LIBC=LIBC_GLIBC"
+			default_libc=LIBC_GLIBC
 			# Force .init_array support.  The configure script cannot always
 			# automatically detect that GAS supports it, yet we require it.
 			gcc_cv_initfini_array=yes
 			;;
 		    csky-*-linux-uclibc*)
-			tm_defines="$tm_defines DEFAULT_LIBC=LIBC_UCLIBC"
+			default_libc=LIBC_UCLIBC
 			default_use_cxa_atexit=no
 			;;
 		    *)
@@ -3143,7 +3146,7 @@ powerpc*-wrs-vxworks7r*)
 	tmake_file="${tmake_file} t-linux rs6000/t-linux64 rs6000/t-fprules rs6000/t-ppccomm"
 	tmake_file="${tmake_file} rs6000/t-vxworks"
 
-	tm_defines="$tm_defines DEFAULT_LIBC=LIBC_GLIBC"
+	default_libc=LIBC_GLIBC
 	extra_objs="$extra_objs linux.o rs6000-linux.o"
 	;;
 powerpc-wrs-vxworks*)
@@ -6095,5 +6098,34 @@ i[34567]86-*-* | x86_64-*-*)
 	if test x$enable_as_accelerator = xyes; then
 		extra_programs="mkoffload\$(exeext)"
 	fi
+	;;
+esac
+
+case "${with_default_libc}" in
+glibc)
+    default_libc=LIBC_GLIBC
+    ;;
+uclibc)
+    default_libc=LIBC_UCLIBC
+    ;;
+bionic)
+    default_libc=LIBC_BIONIC
+    ;;
+musl)
+    default_libc=LIBC_MUSL
+    ;;
+"")
+    ;;
+*)
+    echo "Unknown libc in --with-default-libc=$with_default_libc" 1>&2
+    exit 1
+    ;;
+esac
+
+case "$default_libc" in
+"")
+        ;;
+*)
+	tm_defines="$tm_defines DEFAULT_LIBC=$default_libc"
 	;;
 esac

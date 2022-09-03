@@ -2546,6 +2546,10 @@ if { { test x$host != x$target && test "x$with_sysroot" = x ; } ||
 fi
 AC_SUBST(inhibit_libc)
 
+AC_ARG_WITH(default-libc,
+	[AS_HELP_STRING([--with-default-libc],
+			[Use specified default C library])])
+
 # When building gcc with a cross-compiler, we need to adjust things so
 # that the generator programs are still built with the native compiler.
 # Also, we cannot run fixincludes.
