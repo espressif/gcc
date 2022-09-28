@@ -213,5 +213,5 @@ print('#  %s' % ' '.join(sys.argv))
 
 print('MULTILIB_OPTIONS = %s %s %s %s' % (arch_options, abi_options, cmodel_options, common_opt))
 print('MULTILIB_DIRNAMES = %s %s %s %s' % (arch_dirnames, abi_dirnames, cmodel_dirnames, common_dir))
-print('MULTILIB_REQUIRED = %s %s' % (' \\\n'.join(required), common_opt))
+print('MULTILIB_REQUIRED = %s' % ' \\\n'.join(required))
 print('MULTILIB_REUSE = %s' % ' \\\n'.join(reuse))
