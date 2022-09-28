@@ -18,3 +18,6 @@
 
 TM_H += $(srcdir)/../include/xtensa-config.h
 $(out_object_file): gt-xtensa.h
+
+MULTILIB_OPTIONS = mfix-esp32-psram-cache-issue fno-rtti
+MULTILIB_DIRNAMES = esp32-psram no-rtti
