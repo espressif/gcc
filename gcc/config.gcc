@@ -1174,6 +1174,17 @@ case ${target} in
       ;;
   esac
   ;;
+*-picolibc-*)
+  # __cxa_atexit is provided.
+  default_use_cxa_atexit=yes
+  use_gcc_stdint=wrap
+  default_libc=LIBC_PICOLIBC
+  case "${with_newlib}-${with_headers}" in
+  no-no) use_gcc_stdint=provide ;;
+  *) ;;
+  esac
+  ;;
+
 *-*-elf|arc*-*-elf*)
   # Assume that newlib is being used and so __cxa_atexit is provided.
   default_use_cxa_atexit=yes
