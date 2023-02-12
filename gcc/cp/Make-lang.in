@@ -77,7 +77,12 @@ CFLAGS-cp/module.o += -DMODULE_VERSION='$(shell cat s-cp-module-version)'
 endif
 
 # Create the compiler driver for g++.
-GXX_OBJS = $(GCC_OBJS) cp/g++spec.o
+GXX_OBJS = $(GCC_OBJS:gcc.o=gpp.o) cp/g++spec.o
+
+CFLAGS-gpp.o = $(CFLAGS-gcc.o)
+gpp.o: $(BASEVER)
+gpp.o: gcc.o
+
 xg++$(exeext): $(GXX_OBJS) $(EXTRA_GCC_OBJS) libcommon-target.a $(LIBDEPS)
 	+$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) -o $@ \
 	  $(GXX_OBJS) $(EXTRA_GCC_OBJS) libcommon-target.a \
