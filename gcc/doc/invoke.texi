@@ -34292,6 +34292,14 @@ Choose startup files and linker script suitable for the simulator.
 These options are supported for Xtensa targets:
 
 @table @gcctabopt
+
+@vindex XTENSA_GNU_CONFIG
+@item XTENSA_GNU_CONFIG
+@env{XTENSA_GNU_CONFIG} is designed to set dir/fullpath to dynconfig
+library. In case directory is present in @env{XTENSA_GNU_CONFIG}
+filename of dynconfig library must be set in @option{-mdynconfig}.
+Must ends with directory separator in case contains direcrory path.
+
 @opindex mconst16
 @opindex mno-const16
 @item -mconst16
@@ -34428,6 +34436,12 @@ instructions, in clock cycles.  This affects, when optimizing for speed,
 whether loading a constant from literal pool using @code{L32R} or
 synthesizing the constant from a small one with a couple of arithmetic
 instructions.  The default value is 0.
+
+@opindex mdynconfig
+@item -mdynconfig=@var{path}
+Set the filename/path to xtensa dynconfig.
+In case filename is set the directory part must be present in
+@env{XTENSA_GNU_CONFIG} environment variable.
 @end table
 
 @node zSeries Options
