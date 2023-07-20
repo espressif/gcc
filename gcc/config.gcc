@@ -3599,6 +3599,12 @@ xstormy16-*-elf)
 xtensa*-*-elf*)
 	tm_file="${tm_file} elfos.h newlib-stdint.h xtensa/elf.h"
 	extra_options="${extra_options} xtensa/elf.opt"
+	tmake_file="${tmake_file} xtensa/t-xtensa"
+	case ${target} in
+	xtensa*-esp-elf*)
+		tmake_file="${tmake_file} xtensa/t-esp-multilib"
+		;;
+	esac
 	;;
 xtensa*-*-linux*)
 	tm_file="${tm_file} elfos.h gnu-user.h linux.h glibc-stdint.h xtensa/linux.h"
