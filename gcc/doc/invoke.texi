@@ -36430,6 +36430,14 @@ Choose startup files and linker script suitable for the simulator.
 These options are supported for Xtensa targets:
 
 @table @gcctabopt
+
+@vindex XTENSA_GNU_CONFIG
+@item XTENSA_GNU_CONFIG
+@env{XTENSA_GNU_CONFIG} is designed to set dir/fullpath to dynconfig
+library. In case directory is present in @env{XTENSA_GNU_CONFIG}
+filename of dynconfig library must be set in @option{-mdynconfig}.
+Must ends with directory separator in case contains direcrory path.
+
 @opindex mconst16
 @opindex mno-const16
 @item -mconst16
@@ -36576,6 +36584,12 @@ object boundary as described in the architecture specification.
 The default is @option{-mno-strict-align} for cores that support both
 unaligned loads and stores in hardware and @option{-mstrict-align} for all
 other cores.
+
+@opindex mdynconfig
+@item -mdynconfig=@var{path}
+Set the filename/path to xtensa dynconfig.
+In case filename is set the directory part must be present in
+@env{XTENSA_GNU_CONFIG} environment variable.
 
 @end table
 

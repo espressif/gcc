@@ -22,6 +22,7 @@
 #include "coretypes.h"
 #include "diagnostic.h"
 #include "intl.h"
+#include "options.h"
 #define XTENSA_CONFIG_DEFINITION
 #include "xtensa-config.h"
 #include "xtensa-dynconfig.h"
@@ -67,6 +68,55 @@ dlerror (void)
 
 #define CONFIG_ENV_NAME "XTENSA_GNU_CONFIG"
 
+#ifdef ENABLE_PLUGIN
+
+static char *get_xtensa_dynconfig_file (void)
+{
+  const char *xtensa_dynconfig_env = getenv (CONFIG_ENV_NAME);
+  if (!strlen (xtensa_dynconfig_file))
+    {
+      if (xtensa_dynconfig_env && !strlen (lbasename (xtensa_dynconfig_env)))
+	{
+	  /* XTENSA_GNU_CONFIG has directory path, but dynconfig file is not set */
+	  return NULL;
+	}
+      else if (xtensa_dynconfig_env)
+	{
+	  /* XTENSA_GNU_CONFIG has filepath */
+	  return xstrdup (xtensa_dynconfig_env);
+	}
+      /* dynconfig is not set */
+      return NULL;
+    }
+  if (!xtensa_dynconfig_env)
+    {
+      /* XTENSA_GNU_CONFIG has filepath */
+      return xstrdup (xtensa_dynconfig_file);
+    }
+  if (!strlen (lbasename (xtensa_dynconfig_env)))
+    {
+      /* XTENSA_GNU_CONFIG has directory path and dynconfig file is set */
+      const size_t len = strlen (xtensa_dynconfig_env) +
+                         strlen (xtensa_dynconfig_file) + 1;
+      char *path = ( char *) xmalloc (len);
+      strcpy (path, xtensa_dynconfig_env);
+      strcat (path, xtensa_dynconfig_file);
+      return path;
+    }
+  if (strcmp (lbasename (xtensa_dynconfig_env),
+              lbasename (xtensa_dynconfig_file)))
+    {
+      fatal_error (input_location,
+                   "Both %qs and \"-dynconfig=\" specified but pointed different files: \"%qs\" \"%qs\"",
+                   CONFIG_ENV_NAME, xtensa_dynconfig_env, xtensa_dynconfig_file);
+      exit (FATAL_EXIT_CODE);
+    }
+  /* XTENSA_GNU_CONFIG and mdynconfig option point to the same file */
+  return xstrdup (xtensa_dynconfig_env);
+}
+
+#endif /* ENABLE_PLUGIN  */
+
 const void *xtensa_load_config (const char *name ATTRIBUTE_UNUSED,
 				const void *no_plugin_def,
 				const void *no_name_def ATTRIBUTE_UNUSED)
@@ -78,12 +128,13 @@ const void *xtensa_load_config (const char *name ATTRIBUTE_UNUSED,
 
   if (!init)
     {
-      const char *path = getenv (CONFIG_ENV_NAME);
+      char *path = get_xtensa_dynconfig_file();
 
       init = 1;
       if (!path)
 	return no_plugin_def;
       handle = dlopen (path, RTLD_LAZY);
+      free (path);
       if (!handle)
 	{
 	  fatal_error (input_location,
@@ -119,7 +170,7 @@ const void *xtensa_load_config (const char *name ATTRIBUTE_UNUSED,
 #else
   if (!init)
     {
-      const char *path = getenv (CONFIG_ENV_NAME);
+      const char *path = strcmp(xtensa_dynconfig_file, "") ? xtensa_dynconfig_file : getenv (CONFIG_ENV_NAME);
 
       init = 1;
       if (path)
