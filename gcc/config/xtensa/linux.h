@@ -46,7 +46,8 @@ along with GCC; see the file COPYING3.  If not see
   %{mauto-litpools:--auto-litpools} \
   %{mno-auto-litpools:--no-auto-litpools} \
   %{mabi=windowed:--abi-windowed} \
-  %{mabi=call0:--abi-call0}"
+  %{mabi=call0:--abi-call0} \
+  %{mdynconfig=*:--dynconfig=%*}"
 
 #define GLIBC_DYNAMIC_LINKER "/lib/ld.so.1"
 
@@ -60,7 +61,8 @@ along with GCC; see the file COPYING3.  If not see
     %{static-pie:-static -pie --no-dynamic-linker -z text} \
     %{static:-static}} \
   %{mabi=windowed:--abi-windowed} \
-  %{mabi=call0:--abi-call0}"
+  %{mabi=call0:--abi-call0} \
+  %{mdynconfig=*:--dynconfig=%*}"
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX	"."
