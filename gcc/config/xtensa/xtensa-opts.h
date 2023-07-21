@@ -25,4 +25,11 @@ enum xtensa_strict_alignment_setting {
   XTENSA_STRICT_ALIGNMENT_UNDEFINED = -1,
 };
 
+enum esp32_psram_fix_type
+{
+  ESP32_PSRAM_FIX_DUPLDST,
+  ESP32_PSRAM_FIX_MEMW,
+  ESP32_PSRAM_FIX_NOPS
+};
+
 #endif
