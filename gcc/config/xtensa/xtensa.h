@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Get Xtensa configuration settings */
 #include "xtensa-dynconfig.h"
+#include "xtensa-opts.h"
 
 /* External variables defined in xtensa.cc.  */
 
@@ -54,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_WINDOWED_ABI	xtensa_windowed_abi
 #define TARGET_DEBUG		XCHAL_HAVE_DEBUG
 #define TARGET_L32R		XCHAL_HAVE_L32R
+#define TARGET_PSRAM_FIX	TARGET_ESP32_PSRAM_FIX_ENA
 
 #define TARGET_DEFAULT (MASK_SERIALIZE_VOLATILE)
 

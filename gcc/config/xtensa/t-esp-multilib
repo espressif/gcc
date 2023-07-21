@@ -16,5 +16,9 @@
 # along with GCC; see the file COPYING3.  If not see
 # <http://www.gnu.org/licenses/>.
 
-MULTILIB_OPTIONS = mdynconfig=xtensa_esp32.so/mdynconfig=xtensa_esp32s2.so/mdynconfig=xtensa_esp32s3.so fno-rtti
-MULTILIB_DIRNAMES = esp32 esp32s2 esp32s3 no-rtti
+MULTILIB_OPTIONS = mdynconfig=xtensa_esp32.so/mdynconfig=xtensa_esp32s2.so/mdynconfig=xtensa_esp32s3.so mfix-esp32-psram-cache-issue fno-rtti
+MULTILIB_DIRNAMES = esp32 esp32s2 esp32s3 psram no-rtti
+MULTILIB_REQUIRED = mdynconfig=xtensa_esp32.so mdynconfig=xtensa_esp32.so/fno-rtti \
+mdynconfig=xtensa_esp32.so/mfix-esp32-psram-cache-issue mdynconfig=xtensa_esp32.so/mfix-esp32-psram-cache-issue/fno-rtti \
+mdynconfig=xtensa_esp32s2.so mdynconfig=xtensa_esp32s2.so/fno-rtti \
+mdynconfig=xtensa_esp32s3.so mdynconfig=xtensa_esp32s3.so/fno-rtti
