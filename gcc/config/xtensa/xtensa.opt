@@ -75,3 +75,31 @@ Do not use unaligned memory references.
 mdynconfig=
 Target RejectNegative Joined Var(xtensa_dynconfig_file) Init("")
 Directory or path to dynconfig library.
+
+malways-memw
+Target Mask(ESP32_ALWAYS_MEMBARRIER)
+Always emit a MEMW before a load and after a store operation. Used to debug memory coherency issues.
+
+mfix-esp32-psram-cache-issue
+Target Mask(ESP32_PSRAM_FIX_ENA)
+Work around a PSRAM cache issue in the ESP32 ECO1 chips.
+
+mfix-esp32-psram-cache-strategy=
+Target RejectNegative JoinedOrMissing Enum(esp32_psram_fix_type) Var(esp32_psram_fix_strat) Init(ESP32_PSRAM_FIX_MEMW)
+Specify a psram cache fix strategy.
+
+Enum
+Name(esp32_psram_fix_type) Type(enum esp32_psram_fix_type)
+Psram cache fix strategies (for use with -mfix-esp32-psram-cache-strategy= option):
+
+EnumValue
+Enum(esp32_psram_fix_type) String(dupldst) Value(ESP32_PSRAM_FIX_DUPLDST)
+Fix esp32 psram cache issue by duplicating stores and non-word loads.
+
+EnumValue
+Enum(esp32_psram_fix_type) String(memw) Value(ESP32_PSRAM_FIX_MEMW)
+Fix esp32 psram cache issue by inserting memory barriers in critical places. Default workaround.
+
+EnumValue
+Enum(esp32_psram_fix_type) String(nops) Value(ESP32_PSRAM_FIX_NOPS)
+Fix esp32 psram cache issue by inserting NOPs in critical places.
