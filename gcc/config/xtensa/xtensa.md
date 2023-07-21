@@ -121,6 +121,10 @@
   "unknown,none,QI,HI,SI,DI,SF,DF,BL"
   (const_string "unknown"))
 
+(define_attr "condjmp"
+  "na,cond,uncond"
+  (const_string "na"))
+
 (define_attr "length" "" (const_int 1))
 
 ;; Describe a user's asm statement.
@@ -139,13 +143,37 @@
 ;; reservations in the pipeline description below.  The Xtensa can
 ;; issue one instruction per cycle, so defining CPU units is unnecessary.
 
+(define_cpu_unit "loadstore")
+
 (define_insn_reservation "xtensa_any_insn" 1
-			 (eq_attr "type" "!load,fload,rsr,mul16,mul32,fmadd,fconv")
+			 (eq_attr "type" "!load,fload,store,fstore,rsr,mul16,mul32,fmadd,fconv")
 			 "nothing")
 
-(define_insn_reservation "xtensa_memory" 2
-			 (eq_attr "type" "load,fload")
+(define_insn_reservation "xtensa_memory_load" 2
+			 (and (not (match_test "TARGET_PSRAM_FIX"))
+			 (eq_attr "type" "load,fload"))
 			 "nothing")
+
+(define_insn_reservation "xtensa_memory_store" 1
+			 (and (not (match_test "TARGET_PSRAM_FIX"))
+			 (eq_attr "type" "store,fstore"))
+			 "nothing")
+
+;; If psram cache issue needs fixing, it's better to keep
+;; stores far from loads from the same address. We cannot encode
+;; that behaviour entirely here (or maybe we can, but at least
+;; not easily), but we can try to get everything that smells like
+;; load or store up to a pipeline length apart from each other.
+
+(define_insn_reservation "xtensa_memory_load_psram_fix" 2
+			 (and (match_test "TARGET_PSRAM_FIX")
+			 (eq_attr "type" "load,fload"))
+			 "loadstore*5")
+
+(define_insn_reservation "xtensa_memory_store_psram_fix" 1
+			 (and (match_test "TARGET_PSRAM_FIX")
+			 (eq_attr "type" "store,fstore"))
+			 "loadstore*5")
 
 (define_insn_reservation "xtensa_sreg" 2
 			 (eq_attr "type" "rsr")
@@ -1874,9 +1902,9 @@
 		      (label_ref (match_operand 2 ""))
 		      (pc)))]
   ""
-  {@ [cons: 0, 1, 2; attrs: type]
-     [r,  K, ; jump] << xtensa_emit_branch (true, operands);
-     [r, ?r, ; jump] << xtensa_emit_branch (false, operands);
+  {@ [cons: 0, 1, 2; attrs: type, condjmp]
+     [r,  K, ; jump, cond] << xtensa_emit_branch (true, operands);
+     [r, ?r, ; jump, cond] << xtensa_emit_branch (false, operands);
   }
   [(set_attr "mode" "none")
    (set (attr "length")
@@ -1914,6 +1942,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"6")])
 
 (define_insn "*ubtrue"
@@ -1924,9 +1953,9 @@
 		      (label_ref (match_operand 2 ""))
 		      (pc)))]
   ""
-  {@ [cons: 0, 1, 2; attrs: type, length]
-     [r, L, ; jump, 3] << xtensa_emit_branch (true, operands);
-     [r, r, ; jump, 3] << xtensa_emit_branch (false, operands);
+  {@ [cons: 0, 1, 2; attrs: type, condjmp, length]
+     [r, L, ; jump, cond, 3] << xtensa_emit_branch (true, operands);
+     [r, r, ; jump, cond, 3] << xtensa_emit_branch (false, operands);
   }
   [(set_attr "mode" "none")])
 
@@ -1962,6 +1991,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn "*masktrue"
@@ -1983,6 +2013,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn "*masktrue_bitcmpl"
@@ -2004,6 +2035,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn_and_split "*masktrue_const_bitcmpl"
@@ -2031,6 +2063,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set (attr "length")
 	(if_then_else (match_test "TARGET_DENSITY
 				   && IN_RANGE (INTVAL (operands[1]), -32, 95)")
@@ -2089,6 +2122,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set (attr "length")
 	(if_then_else (match_test "(TARGET_DENSITY && INTVAL (operands[1]) == 0x7FFFFFFF)
 				   && INTVAL (operands[2]) == 0")
@@ -2129,6 +2163,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set (attr "length")
 	(if_then_else (match_test "TARGET_DENSITY && INTVAL (operands[2]) == 0")
 		      (const_int 5)
@@ -2170,6 +2205,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set (attr "length")
 	(if_then_else (match_test "TARGET_DENSITY
 				   && (uint32_t)INTVAL (operands[2]) >> ctz_hwi (INTVAL (operands[1])) == 0")
@@ -2234,6 +2270,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"0")])
 
 (define_split
@@ -2464,6 +2501,7 @@
   "j\t%l0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 (define_expand "indirect_jump"
@@ -2485,6 +2523,7 @@
   "jx\t%0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 
@@ -2514,6 +2553,7 @@
   "jx\t%0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 
@@ -2651,6 +2691,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set (attr "length")
 	(if_then_else (match_test "TARGET_DENSITY")
 		      (const_int 2)
@@ -2961,6 +3002,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn "*boolfalse"
@@ -2979,6 +3021,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 
@@ -3282,6 +3325,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"6")])
 
 (define_split
