@@ -120,6 +120,12 @@ using namespace __cxxabiv1;
 # define USE_POOL 1
 #endif
 
+extern "C" __attribute__((weak)) size_t __cxx_eh_arena_size_get(void)
+{
+  return 0;
+}
+
+
 #if USE_POOL
 namespace __gnu_cxx
 {
@@ -229,7 +235,7 @@ namespace
 	obj_size = tunables[0].second;
 #endif // HOSTED
 
-      arena_size = buffer_size_in_bytes(obj_count, obj_size);
+      arena_size = __cxx_eh_arena_size_get();
       if (arena_size == 0)
 	return;
       arena = (char *)malloc (arena_size);
