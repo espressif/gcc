@@ -67,6 +67,11 @@
 # include <stdlib.h>
 #endif
 
+#ifndef _GLIBCXX_HAVE_GETENTROPY
+#define _GLIBCXX_HAVE_GETENTROPY 1
+int getentropy(void *, size_t);
+#endif
+
 #ifdef _GLIBCXX_HAVE_GETENTROPY
 # include <unistd.h>
 #endif
