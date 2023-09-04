@@ -1213,10 +1213,12 @@ extern void riscv_remove_unneeded_save_restore_calls (void);
 
 #define RISCV_DWARF_VLENB (4096 + 0xc22)
 
-#define DWARF_FRAME_REGISTERS (FIRST_PSEUDO_REGISTER + 1 /* VLENB */)
+#define BASE_PSEUDO_REGISTERS 66
+
+#define DWARF_FRAME_REGISTERS (BASE_PSEUDO_REGISTERS + 1 /* VLENB */)
 
 #define DWARF_REG_TO_UNWIND_COLUMN(REGNO) \
-  ((REGNO == RISCV_DWARF_VLENB) ? (FIRST_PSEUDO_REGISTER + 1) : REGNO)
+  ((REGNO == RISCV_DWARF_VLENB) ? (BASE_PSEUDO_REGISTERS + 1) : REGNO)
 
 /* Like s390, riscv also defined this macro for the vector comparision.  Then
    the simplify-rtx relational_result will canonicalize the result to the
