@@ -99,3 +99,7 @@ Fix esp32 psram cache issue by inserting memory barriers in critical places. Def
 EnumValue
 Enum(esp32_psram_fix_type) String(nops) Value(ESP32_PSRAM_FIX_NOPS)
 Fix esp32 psram cache issue by inserting NOPs in critical places.
+
+mdisable-hardware-atomics
+Target Mask(DISABLE_HARDWARE_ATOMICS)
+Builtin atomics don't work on external memory. As a workaroud use software implemented atomics.
