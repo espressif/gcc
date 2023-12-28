@@ -2903,7 +2903,7 @@
 	     (match_operand:SI 2 "register_operand" "r")
 	     (match_operand:SI 3 "register_operand" "0")]
 	    UNSPECV_S32C1I))])]
-  "TARGET_S32C1I"
+  "TARGET_S32C1I && !TARGET_DISABLE_HARDWARE_ATOMICS"
   "wsr\t%2, SCOMPARE1\;s32c1i\t%3, %1"
   [(set_attr "type"	"multi")
    (set_attr "mode"	"SI")
@@ -2919,7 +2919,7 @@
 	     (match_operand:HQI 2 "register_operand" "")
 	     (match_operand:HQI 3 "register_operand" "")]
 	    UNSPECV_S32C1I))])]
-  "TARGET_S32C1I"
+  "TARGET_S32C1I && !TARGET_DISABLE_HARDWARE_ATOMICS"
 {
   xtensa_expand_compare_and_swap (operands[0], operands[1],
 				  operands[2], operands[3]);
@@ -2930,7 +2930,7 @@
   [(match_operand:HQI 0 "register_operand")
    (match_operand:HQI 1 "memory_operand")
    (match_operand:HQI 2 "register_operand")]
-  "TARGET_S32C1I"
+  "TARGET_S32C1I && !TARGET_DISABLE_HARDWARE_ATOMICS"
 {
   xtensa_expand_atomic (SET, operands[0], operands[1], operands[2], false);
   DONE;
@@ -2940,7 +2940,7 @@
   [(set (match_operand:HQI 0 "memory_operand")
 	(ATOMIC:HQI (match_dup 0)
 		    (match_operand:HQI 1 "register_operand")))]
-  "TARGET_S32C1I"
+  "TARGET_S32C1I && !TARGET_DISABLE_HARDWARE_ATOMICS"
 {
   xtensa_expand_atomic (<CODE>, NULL_RTX, operands[0], operands[1], false);
   DONE;
@@ -2952,7 +2952,7 @@
    (set (match_dup 1)
 	(ATOMIC:HQI (match_dup 1)
 		    (match_operand:HQI 2 "register_operand")))]
-  "TARGET_S32C1I"
+  "TARGET_S32C1I && !TARGET_DISABLE_HARDWARE_ATOMICS"
 {
   xtensa_expand_atomic (<CODE>, operands[0], operands[1], operands[2], false);
   DONE;
@@ -2963,7 +2963,7 @@
 	(ATOMIC:HQI (match_operand:HQI 1 "memory_operand")
 		    (match_operand:HQI 2 "register_operand")))
    (set (match_dup 1) (ATOMIC:HQI (match_dup 1) (match_dup 2)))]
-  "TARGET_S32C1I"
+  "TARGET_S32C1I && !TARGET_DISABLE_HARDWARE_ATOMICS"
 {
   xtensa_expand_atomic (<CODE>, operands[0], operands[1], operands[2], true);
   DONE;
