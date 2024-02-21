@@ -5391,6 +5391,18 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
   ;;
 esac
 
+case ${host} in
+*-esp*)
+    dwarf2_unwind_enable_fde_sort=0
+  ;;
+*)
+    dwarf2_unwind_enable_fde_sort=1
+  ;;
+esac
+
+$as_echo "#define DWARF2_UNWIND_ENABLE_FDE_SORT \$dwarf2_unwind_enable_fde_sort" >>confdefs.h
+
+
 # Check for visibility support.  This is after config.host so that
 # we can check for asm_hidden_op.
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for __attribute__((visibility(\"hidden\")))" >&5
