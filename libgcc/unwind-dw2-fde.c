@@ -103,12 +103,6 @@ static __gthread_mutex_t object_mutex;
 #endif
 #endif
 
-static unsigned char enable_exception_fde_sorting = 1;
-
-void _Unwind_SetEnableExceptionFdeSorting(unsigned char enable) {
-    enable_exception_fde_sorting = enable;
-}
-
 /* Called from crtbegin.o to register the unwind info for an object.  */
 
 void
@@ -248,11 +242,13 @@ __deregister_frame_info_bases (const void *begin)
   ob = btree_remove (&registered_frames, range[0]);
   bool empty_table = (range[1] - range[0]) == 0;
 
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
   // Deallocate the sort array if any.
   if (ob && ob->s.b.sorted)
     {
       free (ob->u.sort);
     }
+#endif
 #else
   init_object_mutex_once ();
   __gthread_mutex_lock (&object_mutex);
@@ -267,6 +263,7 @@ __deregister_frame_info_bases (const void *begin)
       }
 
   for (p = &seen_objects; *p ; p = &(*p)->next)
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
     if ((*p)->s.b.sorted)
       {
 	if ((*p)->u.sort->orig_data == begin)
@@ -278,6 +275,7 @@ __deregister_frame_info_bases (const void *begin)
 	  }
       }
     else
+#endif
       {
 	if ((*p)->u.single == begin)
 	  {
@@ -404,6 +402,7 @@ get_fde_encoding (const struct dwarf_fde *f)
 }
 
 
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
 /* Sorting an array of FDEs by address.
    (Ideally we would have the linker sort the FDEs so we don't have to do
    it at run time. But the linkers are not yet prepared for this.)  */
@@ -712,6 +711,7 @@ end_fde_sort (struct object *ob, struct fde_accumulator *accu, size_t count)
       frame_heapsort (ob, fde_compare, accu->linear);
     }
 }
+#endif
 
 /* Inspect the fde array beginning at this_fde. This
    function can be used either in query mode (RANGE is
@@ -804,6 +804,7 @@ classify_object_over_fdes (struct object *ob, const fde *this_fde,
   return count;
 }
 
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
 static void
 add_fdes (struct object *ob, struct fde_accumulator *accu, const fde *this_fde)
 {
@@ -863,6 +864,7 @@ add_fdes (struct object *ob, struct fde_accumulator *accu, const fde *this_fde)
       fde_insert (accu, this_fde);
     }
 }
+#endif
 
 /* Set up a sorted array of pointers to FDEs for a loaded object.  We
    count up the entries before allocating the array because it's likely to
@@ -872,7 +874,9 @@ add_fdes (struct object *ob, struct fde_accumulator *accu, const fde *this_fde)
 static inline void
 init_object (struct object* ob)
 {
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
   struct fde_accumulator accu;
+#endif
   size_t count;
 
   count = ob->s.b.count;
@@ -913,9 +917,7 @@ init_object (struct object* ob)
 	ob->s.b.count = 0;
     }
 
-  if (!enable_exception_fde_sorting)
-    return;
-
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
   if (!start_fde_sort (&accu, count))
     return;
 
@@ -944,6 +946,7 @@ init_object (struct object* ob)
 #else
   ob->s.b.sorted = 1;
 #endif
+#endif
 }
 
 #ifdef ATOMIC_FDE_FAST_PATH
@@ -955,11 +958,14 @@ get_pc_range (const struct object *ob, uintptr_type *range)
   // classify_object_over_fdes does not modify ob in query mode.
   struct object *ncob = (struct object *) (uintptr_type) ob;
   range[0] = range[1] = 0;
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
   if (ob->s.b.sorted)
     {
       classify_object_over_fdes (ncob, ob->u.sort->orig_data, range);
     }
-  else if (ob->s.b.from_array)
+  else
+#endif
+  if (ob->s.b.from_array)
     {
       fde **p = ob->u.array;
       for (; *p; ++p)
@@ -1043,6 +1049,7 @@ linear_search_fdes (struct object *ob, const fde *this_fde, void *pc)
   return NULL;
 }
 
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
 /* Binary search for an FDE containing the given PC.  Here are three
    implementations of increasing complexity.  */
 
@@ -1132,6 +1139,7 @@ binary_search_mixed_encoding_fdes (struct object *ob, void *pc)
 
   return NULL;
 }
+#endif
 
 static const fde *
 search_object (struct object* ob, void *pc)
@@ -1141,7 +1149,9 @@ search_object (struct object* ob, void *pc)
 #ifndef ATOMIC_FDE_FAST_PATH
   /* If the data hasn't been sorted, try to do this now.  We may have
      more memory available than last time we tried.  */
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
   if (! ob->s.b.sorted)
+#endif
     {
       init_object (ob);
 
@@ -1153,6 +1163,7 @@ search_object (struct object* ob, void *pc)
     }
 #endif
 
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
   if (ob->s.b.sorted)
     {
       if (ob->s.b.mixed_encoding)
@@ -1163,6 +1174,7 @@ search_object (struct object* ob, void *pc)
 	return binary_search_single_encoding_fdes (ob, pc);
     }
   else
+#endif
     {
       /* Long slow laborious linear search, cos we've no memory.  */
       if (ob->s.b.from_array)
@@ -1182,6 +1194,7 @@ search_object (struct object* ob, void *pc)
 }
 
 #ifdef ATOMIC_FDE_FAST_PATH
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
 
 // Check if the object was already initialized
 static inline bool
@@ -1195,6 +1208,7 @@ is_object_initialized (struct object *ob)
 }
 
 #endif
+#endif
 
 const fde *
 _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
@@ -1207,14 +1221,18 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
   if (!ob)
     return NULL;
 
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
   // Initialize the object lazily
   if (!is_object_initialized (ob))
+#endif
     {
       // Check again under mutex
       init_object_mutex_once ();
       __gthread_mutex_lock (&object_mutex);
 
+#if DWARF2_UNWIND_ENABLE_FDE_SORT
       if (!ob->s.b.sorted)
+#endif
 	{
 	  init_object (ob);
 	}

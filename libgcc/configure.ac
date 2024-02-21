@@ -556,6 +556,16 @@ xtensa*-*)
   ;;
 esac
 
+case ${host} in
+*-esp*)
+    dwarf2_unwind_enable_fde_sort=0
+  ;;
+*)
+    dwarf2_unwind_enable_fde_sort=1
+  ;;
+esac
+AC_DEFINE(DWARF2_UNWIND_ENABLE_FDE_SORT, $dwarf2_unwind_enable_fde_sort, [Define 1 if dwarf2 unwind fde sort is enabled.])
+
 # Check for visibility support.  This is after config.host so that
 # we can check for asm_hidden_op.
 AC_CACHE_CHECK([for __attribute__((visibility("hidden")))],

@@ -89,7 +89,6 @@ struct dwarf_eh_bases
   void *func;
 };
 
-void _Unwind_SetEnableExceptionFdeSorting(unsigned char enable);
 
 extern void __register_frame_info_bases (const void *, struct object *,
 					 void *, void *);
