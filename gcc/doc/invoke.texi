@@ -31591,6 +31591,18 @@ to @samp{zvks} and @samp{zvkg}.
 @tab 1.0
 @tab Ventana integer conditional operations extension.
 
+@item xespv
+@tab 2.1
+@tab Espressif Vector Instruction Extension.
+
+@item xesploop
+@tab 1.0
+@tab Espressif Loop Instruction Extension.
+
+@item xespdsp
+@tab 2.1
+@tab Espressif DSP Instruction Extension.
+
 @end multitable
 
 When @option{-march=} is not specified, use the setting from @option{-mcpu}.
