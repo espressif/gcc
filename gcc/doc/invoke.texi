@@ -30915,6 +30915,14 @@ to @samp{zvks} and @samp{zvkg}.
 @tab 1.0
 @tab Espressif Processor Instruction Extension.
 
+@item xespv
+@tab 2.1
+@tab Espressif Vector Instruction Extension.
+
+@item xesploop
+@tab 1.0
+@tab Espressif Loop Instruction Extension.
+
 @end multitable
 
 When @option{-march=} is not specified, use the setting from @option{-mcpu}.
