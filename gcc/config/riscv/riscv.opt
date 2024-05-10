@@ -490,9 +490,13 @@ int riscv_xventana_subext
 Mask(XVENTANACONDOPS) Var(riscv_xventana_subext)
 
 TargetVariable
-int riscv_xesppie_subext
+int riscv_xespressif_subext
 
-Mask(XESPPIE) Var(riscv_xesppie_subext)
+Mask(XESPPIE) Var(riscv_xespressif_subext)
+
+Mask(XESPV)  Var(riscv_xespressif_subext)
+
+Mask(XESPLOOP)  Var(riscv_xespressif_subext)
 
 Enum
 Name(isa_spec_class) Type(enum riscv_isa_spec_class)
