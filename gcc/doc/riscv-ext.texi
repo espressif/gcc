@@ -714,6 +714,18 @@
 @tab 1.0
 @tab Ventana integer conditional operations extension
 
+@item @samp{xespdsp}
+@tab 2.1
+@tab Espressif DSP Instruction Extension
+
+@item @samp{xesploop}
+@tab 1.0
+@tab Espressif Loop Instruction Extension
+
+@item @samp{xespv}
+@tab 2.1
+@tab Espressif Vector Instruction Extension
+
 @item @samp{xmipscmov}
 @tab 1.0
 @tab Mips conditional move extension
