@@ -384,6 +384,8 @@ static const struct riscv_ext_version riscv_ext_version_table[] =
 
   {"xventanacondops", ISA_SPEC_CLASS_NONE, 1, 0},
 
+  {"xesppie", ISA_SPEC_CLASS_NONE, 1, 0},
+
   /* Terminate the list.  */
   {NULL, ISA_SPEC_CLASS_NONE, 0, 0}
 };
@@ -1671,6 +1673,8 @@ static const riscv_ext_flag_table_t riscv_ext_flag_table[] =
   {"xtheadvector",  &gcc_options::x_target_flags, MASK_VECTOR},
 
   {"xventanacondops", &gcc_options::x_riscv_xventana_subext, MASK_XVENTANACONDOPS},
+
+  {"xesppie", &gcc_options::x_riscv_xesppie_subext, MASK_XESPPIE},
 
   {NULL, NULL, 0}
 };
