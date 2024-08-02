@@ -83,6 +83,8 @@ static const riscv_implied_info_t riscv_implied_info[] =
   {"zfinx", "zicsr"},
   {"zdinx", "zicsr"},
 
+  {"zcmop", "zca"},
+
   {"zk", "zkn"},
   {"zk", "zkr"},
   {"zk", "zkt"},
@@ -288,6 +290,9 @@ static const struct riscv_ext_version riscv_ext_version_table[] =
   {"ziccif",   ISA_SPEC_CLASS_NONE, 1, 0},
   {"zicclsm",  ISA_SPEC_CLASS_NONE, 1, 0},
   {"ziccrse",  ISA_SPEC_CLASS_NONE, 1, 0},
+
+  {"zimop", ISA_SPEC_CLASS_NONE, 1, 0},
+  {"zcmop", ISA_SPEC_CLASS_NONE, 1, 0},
 
   {"zicntr", ISA_SPEC_CLASS_NONE, 2, 0},
   {"zihpm",  ISA_SPEC_CLASS_NONE, 2, 0},
@@ -1652,6 +1657,9 @@ static const riscv_ext_flag_table_t riscv_ext_flag_table[] =
   {"ziccif", &gcc_options::x_riscv_zicmo_subext, MASK_ZICCIF},
   {"zicclsm", &gcc_options::x_riscv_zicmo_subext, MASK_ZICCLSM},
   {"ziccrse", &gcc_options::x_riscv_zicmo_subext, MASK_ZICCRSE},
+
+  {"zimop",    &gcc_options::x_riscv_mop_subext, MASK_ZIMOP},
+  {"zcmop",    &gcc_options::x_riscv_mop_subext, MASK_ZCMOP},
 
   {"zve32x",   &gcc_options::x_target_flags, MASK_VECTOR},
   {"zve32f",   &gcc_options::x_target_flags, MASK_VECTOR},
