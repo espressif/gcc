@@ -97,7 +97,8 @@ supports_vectype_p (const function_group_info &group, unsigned int vec_type_idx)
       || *group.shape == shapes::fault_load
       || *group.shape == shapes::seg_loadstore
       || *group.shape == shapes::seg_indexed_loadstore
-      || *group.shape == shapes::seg_fault_load)
+      || *group.shape == shapes::seg_fault_load
+      || *group.shape == shapes::xxtccev)
     return true;
   return false;
 }
@@ -416,13 +417,17 @@ struct alu_def : public build_base
 	   c.arg_num ().  Thus, make sure arg_num is big enough here.
 	   __riscv_vaadd () will make c.arg_num () == 0.  */
 	if (!c.any_type_float_p () && c.arg_num () >= 2)
-	  return c.require_immediate (c.arg_num () - 2, VXRM_RNU, VXRM_ROD);
+	  return c.require_immediate (c.arg_num () - 2, VXRM_RNU, VXRM_NONE);
 	/* TODO: We will support floating-point intrinsic modeling
 	   rounding mode in the future.  */
       }
     return true;
   }
 };
+
+#define XUANTIE_VECTOR_BUILTINS_SHAPES_CC
+#include "xuantie-vector-builtins.cc"
+#undef XUANTIE_VECTOR_BUILTINS_SHAPES_CC
 
 /* The base class for frm build.  */
 struct build_frm_base : public build_base
@@ -718,7 +723,7 @@ struct narrow_alu_def : public build_base
 	   c.arg_num ().  Thus, make sure arg_num is big enough here.
 	   __riscv_vaadd () will make c.arg_num () == 0.  */
 	if (!c.any_type_float_p () && c.arg_num () >= 2)
-	  return c.require_immediate (c.arg_num () - 2, VXRM_RNU, VXRM_ROD);
+	  return c.require_immediate (c.arg_num () - 2, VXRM_RNU, VXRM_NONE);
 	/* TODO: We will support floating-point intrinsic modeling
 	   rounding mode in the future.  */
       }
@@ -906,6 +911,9 @@ struct vset_def : public build_base
 
   bool check (function_checker &c) const override
   {
+    if (c.arg_mode (0) == E_BLKmode || c.arg_mode (2) == E_BLKmode)
+      return false;
+
     poly_int64 outer_size = GET_MODE_SIZE (c.arg_mode (0));
     poly_int64 inner_size = GET_MODE_SIZE (c.arg_mode (2));
     unsigned int nvecs = exact_div (outer_size, inner_size).to_constant ();
@@ -918,6 +926,9 @@ struct vget_def : public misc_def
 {
   bool check (function_checker &c) const override
   {
+    if (c.arg_mode (0) == E_BLKmode || c.ret_mode () == E_BLKmode)
+      return false;
+
     poly_int64 outer_size = GET_MODE_SIZE (c.arg_mode (0));
     poly_int64 inner_size = GET_MODE_SIZE (c.ret_mode ());
     unsigned int nvecs = exact_div (outer_size, inner_size).to_constant ();
@@ -1321,4 +1332,5 @@ SHAPE(seg_fault_load, seg_fault_load)
 SHAPE(crypto_vv, crypto_vv)
 SHAPE(crypto_vi, crypto_vi)
 SHAPE(crypto_vv_no_op_type, crypto_vv_no_op_type)
+
 } // end namespace riscv_vector

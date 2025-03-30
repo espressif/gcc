@@ -456,7 +456,7 @@ th_memidx_classify_address_modify (struct riscv_address_info *info, rtx x,
   if (!TARGET_64BIT && mode == DImode)
     return false;
 
-  if (!(INTEGRAL_MODE_P (mode) && GET_MODE_SIZE (mode).to_constant () <= 8))
+  if (!(SCALAR_INT_MODE_P (mode) && GET_MODE_SIZE (mode).to_constant () <= 8))
     return false;
 
   if (GET_CODE (x) != POST_MODIFY
@@ -611,16 +611,23 @@ th_memidx_classify_address_index (struct riscv_address_info *info, rtx x,
   if (GET_CODE (x) != PLUS)
     return false;
 
-  rtx reg = XEXP (x, 0);
+  rtx op0 = XEXP (x, 0);
+  rtx op1 = XEXP (x, 1);
   enum riscv_address_type type;
-  rtx offset = XEXP (x, 1);
   int shift;
+  rtx reg = op0;
+  rtx offset = op1;
 
   if (!riscv_valid_base_register_p (reg, mode, strict_p))
-    return false;
+    {
+      reg = op1;
+      offset = op0;
+      if (!riscv_valid_base_register_p (reg, mode, strict_p))
+	return false;
+    }
 
   /* (reg:X) */
-  if (REG_P (offset)
+  if ((REG_P (offset) || SUBREG_P (offset))
       && GET_MODE (offset) == Xmode)
     {
       type = ADDRESS_REG_REG;
@@ -628,7 +635,8 @@ th_memidx_classify_address_index (struct riscv_address_info *info, rtx x,
       offset = offset;
     }
   /* (zero_extend:DI (reg:SI)) */
-  else if (GET_CODE (offset) == ZERO_EXTEND
+  else if (TARGET_64BIT
+	   && GET_CODE (offset) == ZERO_EXTEND
 	   && GET_MODE (offset) == DImode
 	   && GET_MODE (XEXP (offset, 0)) == SImode)
     {
@@ -636,10 +644,38 @@ th_memidx_classify_address_index (struct riscv_address_info *info, rtx x,
       shift = 0;
       offset = XEXP (offset, 0);
     }
+  /* (mult:X (reg:X) (const_int scale)) */
+  else if (GET_CODE (offset) == MULT
+	   && GET_MODE (offset) == Xmode
+	   && (REG_P (XEXP (offset, 0)) || SUBREG_P (XEXP (offset, 0)))
+	   && GET_MODE (XEXP (offset, 0)) == Xmode
+	   && CONST_INT_P (XEXP (offset, 1))
+	   && pow2p_hwi (INTVAL (XEXP (offset, 1)))
+	   && IN_RANGE (exact_log2 (INTVAL (XEXP (offset, 1))), 1, 3))
+    {
+      type = ADDRESS_REG_REG;
+      shift = exact_log2 (INTVAL (XEXP (offset, 1)));
+      offset = XEXP (offset, 0);
+    }
+  /* (mult:DI (zero_extend:DI (reg:SI)) (const_int scale)) */
+  else if (TARGET_64BIT
+	   && GET_CODE (offset) == MULT
+	   && GET_MODE (offset) == DImode
+	   && GET_CODE (XEXP (offset, 0)) == ZERO_EXTEND
+	   && GET_MODE (XEXP (offset, 0)) == DImode
+	   && (REG_P (XEXP (XEXP (offset, 0), 0))
+         || SUBREG_P (XEXP (XEXP (offset, 0), 0)))
+	   && GET_MODE (XEXP (XEXP (offset, 0), 0)) == SImode
+	   && CONST_INT_P (XEXP (offset, 1)))
+    {
+      type = ADDRESS_REG_UREG;
+      shift = exact_log2 (INTVAL (XEXP (offset, 1)));
+      offset = XEXP (XEXP (offset, 0), 0);
+    }
   /* (ashift:X (reg:X) (const_int shift)) */
   else if (GET_CODE (offset) == ASHIFT
 	   && GET_MODE (offset) == Xmode
-	   && REG_P (XEXP (offset, 0))
+	   && (REG_P (XEXP (offset, 0)) || SUBREG_P (XEXP (offset, 0)))
 	   && GET_MODE (XEXP (offset, 0)) == Xmode
 	   && CONST_INT_P (XEXP (offset, 1))
 	   && IN_RANGE (INTVAL (XEXP (offset, 1)), 0, 3))
@@ -648,8 +684,9 @@ th_memidx_classify_address_index (struct riscv_address_info *info, rtx x,
       shift = INTVAL (XEXP (offset, 1));
       offset = XEXP (offset, 0);
     }
-  /* (ashift:DI (zero_extend:DI (reg:SI)) (const_int shift)) */
-  else if (GET_CODE (offset) == ASHIFT
+  /* (ashift:DI (any_extend:DI (reg:SI)) (const_int shift)) */
+  else if (TARGET_64BIT
+	   && GET_CODE (offset) == ASHIFT
 	   && GET_MODE (offset) == DImode
 	   && GET_CODE (XEXP (offset, 0)) == ZERO_EXTEND
 	   && GET_MODE (XEXP (offset, 0)) == DImode
@@ -657,17 +694,39 @@ th_memidx_classify_address_index (struct riscv_address_info *info, rtx x,
 	   && CONST_INT_P (XEXP (offset, 1))
 	   && IN_RANGE(INTVAL (XEXP (offset, 1)), 0, 3))
     {
-      type = ADDRESS_REG_UREG;
+      type = (GET_CODE (XEXP (offset, 0)) == SIGN_EXTEND)
+	     ? ADDRESS_REG_REG : ADDRESS_REG_UREG;
       shift = INTVAL (XEXP (offset, 1));
+      offset = XEXP (XEXP (offset, 0), 0);
+    }
+  /* (and:X (mult:X (reg:X) (const_int scale)) (const_int mask)) */
+  else if (TARGET_64BIT
+	   && GET_CODE (offset) == AND
+	   && GET_MODE (offset) == DImode
+	   && GET_CODE (XEXP (offset, 0)) == MULT
+	   && GET_MODE (XEXP (offset, 0)) == DImode
+	   && (REG_P (XEXP (XEXP (offset, 0), 0))
+         || SUBREG_P (XEXP (XEXP (offset, 0), 0)))
+	   && GET_MODE (XEXP (XEXP (offset, 0), 0)) == DImode
+	   && CONST_INT_P (XEXP (XEXP (offset, 0), 1))
+	   && pow2p_hwi (INTVAL (XEXP (XEXP (offset, 0), 1)))
+	   && IN_RANGE (exact_log2 (INTVAL (XEXP (XEXP (offset, 0), 1))), 1, 3)
+	   && CONST_INT_P (XEXP (offset, 1))
+	   && INTVAL (XEXP (offset, 1))
+	      >> exact_log2 (INTVAL (XEXP (XEXP (offset, 0), 1))) == 0xffffffff)
+    {
+      type = ADDRESS_REG_UREG;
+      shift = exact_log2 (INTVAL (XEXP (XEXP (offset, 0), 1)));
       offset = XEXP (XEXP (offset, 0), 0);
     }
   else
     return false;
 
-  if (!strict_p && GET_CODE (offset) == SUBREG)
+  if (!strict_p && SUBREG_P (offset))
     offset = SUBREG_REG (offset);
 
   if (!REG_P (offset)
+      || !IN_RANGE (shift, 0, 3)
       || !riscv_regno_mode_ok_for_base_p (REGNO (offset), mode, strict_p))
     return false;
 
@@ -776,7 +835,7 @@ th_fmemidx_output_index (rtx dest, rtx src, machine_mode mode, bool load)
   rtx x = th_get_move_mem_addr (dest, src, load);
 
   /* Validate x.  */
-  if (!th_memidx_classify_address_index (&info, x, mode, false))
+  if (!th_memidx_classify_address_index (&info, x, mode, reload_completed))
     return NULL;
 
   int index = exact_log2 (GET_MODE_SIZE (mode).to_constant ()) - 2;
@@ -900,11 +959,11 @@ th_asm_output_opcode (FILE *asm_out_file, const char *p)
 	      if (strstr (p, "zero,zero"))
 		return "th.vsetvli\tzero,zero,e%0,%m1";
 	      else
-		return "th.vsetvli\tzero,%0,e%1,%m2";
+		return "th.vsetvli\tzero,%z0,e%1,%m2";
 	    }
 	  else
 	    {
-	      return "th.vsetvli\t%0,%1,e%2,%m3";
+	      return "th.vsetvli\t%z0,%z1,e%2,%m3";
 	    }
 	}
 
@@ -991,12 +1050,16 @@ th_asm_output_opcode (FILE *asm_out_file, const char *p)
 	  get_attr_type (current_output_insn) == TYPE_VSSEGTE
 				? fputs ("th.vsseg", asm_out_file)
 				: fputs ("th.vlseg", asm_out_file);
-	  asm_fprintf (asm_out_file, "%c", p[5]);
-	  fputs ("e", asm_out_file);
-	  if (strstr (p, "e8"))
-	    return p+8;
-	  else
-	    return p+9;
+    if (strstr (p, "b") || strstr (p, "h") || strstr (p, "w"))
+      return p+5;
+    else {
+      asm_fprintf (asm_out_file, "%c", p[5]);
+      fputs ("e", asm_out_file);
+      if (strstr (p, "e8"))
+        return p+8;
+      else
+        return p+9;
+    }
 	}
 
       if (get_attr_type (current_output_insn) == TYPE_VLSEGDS ||
@@ -1005,36 +1068,48 @@ th_asm_output_opcode (FILE *asm_out_file, const char *p)
 	  get_attr_type (current_output_insn) == TYPE_VSSEGTS
 				? fputs ("th.vssseg", asm_out_file)
 				: fputs ("th.vlsseg", asm_out_file);
-	  asm_fprintf (asm_out_file, "%c", p[6]);
-	  fputs ("e", asm_out_file);
-	  if (strstr (p, "e8"))
-	    return p+9;
-	  else
-	    return p+10;
+    if (strstr (p, "b") || strstr (p, "h") || strstr (p, "w"))
+      return p+6;
+    else {
+      asm_fprintf (asm_out_file, "%c", p[6]);
+      fputs ("e", asm_out_file);
+      if (strstr (p, "e8"))
+        return p+9;
+      else
+        return p+10;
+    }
 	}
 
       if (get_attr_type (current_output_insn) == TYPE_VLSEGDUX ||
 	  get_attr_type (current_output_insn) == TYPE_VLSEGDOX)
 	{
 	  fputs ("th.vlxseg", asm_out_file);
-	  asm_fprintf (asm_out_file, "%c", p[7]);
-	  fputs ("e", asm_out_file);
-	  if (strstr (p, "ei8"))
-	    return p+11;
-	  else
-	    return p+12;
+	  if (strstr (p, "b") || strstr (p, "h") || strstr (p, "w"))
+      return p+6;
+    else {
+      asm_fprintf (asm_out_file, "%c", p[7]);
+      fputs ("e", asm_out_file);
+      if (strstr (p, "ei8"))
+        return p+11;
+      else
+        return p+12;
+    }
 	}
 
       if (get_attr_type (current_output_insn) == TYPE_VSSEGTUX ||
 	  get_attr_type (current_output_insn) == TYPE_VSSEGTOX)
 	{
 	  fputs ("th.vsxseg", asm_out_file);
-	  asm_fprintf (asm_out_file, "%c", p[7]);
-	  fputs ("e", asm_out_file);
-	  if (strstr (p, "ei8"))
-	    return p+11;
-	  else
-	    return p+12;
+	  if (strstr (p, "b") || strstr (p, "h") || strstr (p, "w"))
+      return p+6;
+    else {
+      asm_fprintf (asm_out_file, "%c", p[7]);
+      fputs ("e", asm_out_file);
+      if (strstr (p, "ei8"))
+        return p+11;
+      else
+        return p+12;
+    }
 	}
 
       if (get_attr_type (current_output_insn) == TYPE_VNSHIFT)
@@ -1173,13 +1248,10 @@ th_int_get_mask (unsigned int mask)
 {
   unsigned int xtheadint_mask = 0;
 
-  if (!TARGET_XTHEADINT || TARGET_64BIT)
-    return 0;
-
   for (unsigned int i = 0; i < ARRAY_SIZE (th_int_regs); i++)
     {
       if (!BITSET_P (mask, th_int_regs[i]))
-	return 0;
+	continue;
 
       xtheadint_mask |= (1 << th_int_regs[i]);
     }
@@ -1191,10 +1263,10 @@ th_int_get_mask (unsigned int mask)
    X10-X17, X28-X31.  */
 
 unsigned int
-th_int_get_save_adjustment (void)
+th_int_get_save_adjustment (unsigned th_int_mask)
 {
   gcc_assert (TARGET_XTHEADINT && !TARGET_64BIT);
-  return ARRAY_SIZE (th_int_regs) * UNITS_PER_WORD;
+  return __builtin_popcount (th_int_mask) * UNITS_PER_WORD;
 }
 
 rtx

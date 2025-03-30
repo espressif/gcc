@@ -1373,7 +1373,7 @@ static rtx_insn *last_scheduled_insn;
    block, or the prev_head of the scheduling block.  Used by
    rank_for_schedule, so that insns independent of the last scheduled
    insn will be preferred over dependent instructions.  */
-static rtx_insn *last_nondebug_scheduled_insn;
+rtx_insn *last_nondebug_scheduled_insn;
 
 /* Pointer that iterates through the list of unscheduled insns if we
    have a dbg_cnt enabled.  It always points at an insn prior to the
@@ -2640,12 +2640,18 @@ rank_for_schedule (const void *x, const void *y)
       int a = INSN_FUSION_PRIORITY (tmp);
       int b = INSN_FUSION_PRIORITY (tmp2);
       int last = -1;
+      rtx_insn *last_insn = last_nondebug_scheduled_insn;
 
-      if (last_nondebug_scheduled_insn
-	  && !NOTE_P (last_nondebug_scheduled_insn)
+      /* If last_insn can be fusioned with the previous insn, then we
+	 should use the previous insn fusion priority and priority.  */
+      if (last_insn && INSN_P (last_insn) && SCHED_GROUP_P (last_insn))
+	last_insn = prev_nonnote_nondebug_insn_bb (last_insn);
+
+      if (last_insn
+	  && !NOTE_P (last_insn)
 	  && BLOCK_FOR_INSN (tmp)
-	       == BLOCK_FOR_INSN (last_nondebug_scheduled_insn))
-	last = INSN_FUSION_PRIORITY (last_nondebug_scheduled_insn);
+	       == BLOCK_FOR_INSN (last_insn))
+	last = INSN_FUSION_PRIORITY (last_insn);
 
       if (a != last && b != last)
 	{
@@ -2662,9 +2668,9 @@ rank_for_schedule (const void *x, const void *y)
 	}
       else if (a == b)
 	{
-	  gcc_assert (last_nondebug_scheduled_insn
-		      && !NOTE_P (last_nondebug_scheduled_insn));
-	  last = INSN_PRIORITY (last_nondebug_scheduled_insn);
+	  gcc_assert (last_insn
+		      && !NOTE_P (last_insn));
+	  last = INSN_PRIORITY (last_insn);
 
 	  a = abs (INSN_PRIORITY (tmp) - last);
 	  b = abs (INSN_PRIORITY (tmp2) - last);

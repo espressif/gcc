@@ -1885,6 +1885,17 @@ proc check_effective_target_rv_float_abi_soft { } {
     }]
 }
 
+# Return 1 if the target arch has RV32I or RV64I as the base ISA, 0 otherwise.
+# Cache the result.
+
+proc check_effective_target_riscv_i { } {
+    return [check_no_compiler_messages riscv_i assembly {
+       #ifndef __riscv_i
+       #error "Not __riscv_i"
+       #endif
+    }]
+}
+
 # Return 1 if the target arch supports the atomic extension, 0 otherwise.
 # Cache the result.
 
@@ -1914,6 +1925,8 @@ proc check_effective_target_riscv_v { } {
     return [check_no_compiler_messages riscv_ext_v assembly {
        #ifndef __riscv_v
        #error "Not __riscv_v"
+	   #elif __riscv_v == 7000
+	   #error "Not __riscv_v 1000000"
        #endif
     }]
 }
@@ -2103,7 +2116,7 @@ proc check_effective_target_riscv_v_misalign_ok { } {
 proc riscv_get_arch { } {
     set gcc_march ""
     # ??? do we neeed to add more extensions to the list below?
-    foreach ext { i m a f d q c v zicsr zifencei zfh zba zbb zbc zbs zvfh ztso } {
+    foreach ext { i e m a f d q c v zicsr zifencei zfh zba zbb zbc zbs zvfh ztso } {
 	if { [check_no_compiler_messages  riscv_ext_$ext assembly [string map [list DEF __riscv_$ext] {
 		#ifndef DEF
 		#error "Not DEF"
@@ -11795,6 +11808,7 @@ proc check_vect_support_and_set_flags { } {
 		lappend DEFAULT_VECTCFLAGS "-mno-vector-strict-align"
 	    }
 	} else {
+	    return 0
 	    foreach item [add_options_for_riscv_v ""] {
 		lappend DEFAULT_VECTCFLAGS $item
 	    }

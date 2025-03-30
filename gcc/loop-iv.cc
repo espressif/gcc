@@ -2143,7 +2143,27 @@ canonicalize_iv_subregs (class rtx_iv *iv0, class rtx_iv *iv1,
       case LTU:
 	if (iv0->extend == IV_SIGN_EXTEND
 	    || iv1->extend == IV_SIGN_EXTEND)
+#ifdef TARGET_XUANTIE_SIGNEDNESS_COMPARISON_IV
+    {
+      if (TARGET_XUANTIE_SIGNEDNESS_COMPARISON_IV)
+  {
+#ifdef PROMOTE_MODE
+    int unsignedp = 1;
+    PROMOTE_MODE(iv0->mode, unsignedp, NULL_TREE);
+    if (iv0->extend == IV_SIGN_EXTEND && unsignedp)
+      return false;
+    unsignedp = 1;
+    PROMOTE_MODE(iv1->mode, unsignedp, NULL_TREE);
+    if (iv1->extend == IV_SIGN_EXTEND && unsignedp)
+      return false;
+#endif
+  }
+      else
+  return false;
+    }
+#else
 	  return false;
+#endif
 	signed_p = false;
 	break;
 

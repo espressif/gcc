@@ -256,6 +256,9 @@ main (int argc, const char **argv)
       fprintf (fp, "  /*DOUBLE_TRUNC*/ INVALID,\n");
       fprintf (fp, "  /*QUAD_TRUNC*/ INVALID,\n");
       fprintf (fp, "  /*OCT_TRUNC*/ INVALID,\n");
+      fprintf (fp, "  /*MAQA_MASK*/ INVALID,\n");
+      fprintf (fp, "  /*MAQA_QUAD_SIGNED_TRUNC*/ INVALID,\n");
+      fprintf (fp, "  /*MAQA_QUAD_UNSIGNED_TRUNC*/ INVALID,\n");
       fprintf (fp, "  /*DOUBLE_TRUNC_SCALAR*/ INVALID,\n");
       fprintf (fp, "  /*DOUBLE_TRUNC_SIGNED*/ INVALID,\n");
       fprintf (fp, "  /*DOUBLE_TRUNC_UNSIGNED*/ INVALID,\n");
@@ -326,6 +329,12 @@ main (int argc, const char **argv)
 		     same_ratio_eew_type (sew, lmul_log2, sew / 8, unsigned_p,
 					  false)
 		       .c_str ());
+	    fprintf (fp, "  /*MAQA_MASK*/ %s,\n",
+		     maskmode (sew / 4, lmul_log2).c_str ());
+	    fprintf (fp, "  /*MAQA_QUAD_SIGNED_TRUNC*/ %s,\n",
+		     inttype (sew / 4, lmul_log2, /*unsigned_p*/ false).c_str ());
+	    fprintf (fp, "  /*MAQA_QUAD_UNSIGNED_TRUNC*/ %s,\n",
+		     inttype (sew / 4, lmul_log2, /*unsigned_p*/ true).c_str ());
 	    fprintf (fp, "  /*DOUBLE_TRUNC_SCALAR*/ %s,\n",
 		     same_ratio_eew_type (sew, lmul_log2, sew / 2, unsigned_p,
 					  false)
@@ -414,6 +423,9 @@ main (int argc, const char **argv)
 		 same_ratio_eew_type (16, lmul_log2, 8, false, true).c_str ());
 	fprintf (fp, "  /*QUAD_TRUNC*/ INVALID,\n");
 	fprintf (fp, "  /*OCT_TRUNC*/ INVALID,\n");
+	fprintf (fp, "  /*MAQA_MASK*/ INVALID,\n");
+	fprintf (fp, "  /*MAQA_QUAD_SIGNED_TRUNC*/ INVALID,\n");
+	fprintf (fp, "  /*MAQA_QUAD_UNSIGNED_TRUNC*/ INVALID,\n");
 	fprintf (fp, "  /*DOUBLE_TRUNC_SCALAR*/ %s,\n",
 		 same_ratio_eew_type (16, lmul_log2, 8, false, true).c_str ());
 	fprintf (fp, "  /*DOUBLE_TRUNC_SIGNED*/ %s,\n",
@@ -479,6 +491,9 @@ main (int argc, const char **argv)
 		     .c_str ());
 	  fprintf (fp, "  /*QUAD_TRUNC*/ INVALID,\n");
 	  fprintf (fp, "  /*OCT_TRUNC*/ INVALID,\n");
+	  fprintf (fp, "  /*MAQA_MASK*/ INVALID,\n");
+	  fprintf (fp, "  /*MAQA_QUAD_SIGNED_TRUNC*/ INVALID,\n");
+	  fprintf (fp, "  /*MAQA_QUAD_UNSIGNED_TRUNC*/ INVALID,\n");
 	  fprintf (fp, "  /*DOUBLE_TRUNC_SCALAR*/ %s,\n",
 		   same_ratio_eew_type (sew, lmul_log2, sew / 2, false, true)
 		     .c_str ());

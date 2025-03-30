@@ -31,6 +31,8 @@ along with GCC; see the file COPYING3.  If not see
   "--start-group -lc %{!specs=nosys.specs:-lgloss} --end-group " \
   "%{!nostartfiles:%{!nodefaultlibs:%{!nolibc:%{!nostdlib:%:riscv_multi_lib_check()}}}}"
 
+#define LIBGCC_SPEC "%{mccrt: -lgcc_tf -lcc-rt;!mccrt: -lgcc}"
+
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC "crt0%O%s crtbegin%O%s"
 

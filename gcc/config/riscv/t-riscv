@@ -128,6 +128,7 @@ thead.o: $(srcdir)/config/riscv/thead.cc \
 	$(POSTCOMPILE)
 
 PASSES_EXTRA += $(srcdir)/config/riscv/riscv-passes.def
+PASSES_EXTRA += $(srcdir)/config/riscv/xuantie-passes.def
 
 $(common_out_file): $(srcdir)/config/riscv/riscv-cores.def \
     $(srcdir)/config/riscv/riscv-protos.h \

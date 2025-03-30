@@ -125,8 +125,11 @@ enum required_ext
   ZVKSED_EXT,		/* Crypto vector Zvksed sub-ext */
   ZVKSH_EXT,		/* Crypto vector Zvksh sub-ext */
   XTHEADVECTOR_EXT,	/* XTheadVector extension */
+  XTHEADVECTOR_OR_V_EXT,/* XTheadVector or v extension */
   ZVFBFMIN_EXT,		/* Zvfbfmin externsion */
   ZVFBFWMA_EXT,		/* Zvfbfwma extension */
+  XXTCCEV_EXT,	/* Xxtccev extension */
+  XTHEADVSFA_EXT,		/* Zvfbfwma extension */
   /* Please update below to isa_name func when add or remove enum type(s).  */
 };
 
@@ -156,10 +159,16 @@ static inline const char * reqired_ext_to_isa_name (enum required_ext required)
       return "zvksh";
     case XTHEADVECTOR_EXT:
       return "xthreadvector";
+    case XTHEADVECTOR_OR_V_EXT:
+      return "xthreadvector or v";
     case ZVFBFMIN_EXT:
       return "zvfbfmin";
     case ZVFBFWMA_EXT:
       return "zvfbfwma";
+    case XXTCCEV_EXT:
+      return "xxtccev";
+    case XTHEADVSFA_EXT:
+      return "xtheadvsfa";
     default:
       gcc_unreachable ();
   }
@@ -172,7 +181,7 @@ static inline bool required_extensions_specified (enum required_ext required)
   switch (required)
   {
     case VECTOR_EXT:
-      return TARGET_VECTOR;;
+      return TARGET_VECTOR && !TARGET_XTHEADVECTOR;
     case ZVBB_EXT:
       return TARGET_ZVBB;
     case ZVBB_OR_ZVKB_EXT:
@@ -193,10 +202,16 @@ static inline bool required_extensions_specified (enum required_ext required)
       return TARGET_ZVKSH;
     case XTHEADVECTOR_EXT:
       return TARGET_XTHEADVECTOR;
+    case XTHEADVECTOR_OR_V_EXT:
+      return TARGET_XTHEADVECTOR || TARGET_VECTOR;
     case ZVFBFMIN_EXT:
       return TARGET_ZVFBFMIN;
     case ZVFBFWMA_EXT:
       return TARGET_ZVFBFWMA;
+    case XXTCCEV_EXT:
+      return TARGET_XXTCCEV;
+    case XTHEADVSFA_EXT:
+      return TARGET_XTHEADVSFA;
     default:
       gcc_unreachable ();
   }
@@ -312,7 +327,7 @@ struct function_group_info
     switch (ext_value)
     {
       case VECTOR_EXT:
-        return TARGET_VECTOR;
+	return TARGET_VECTOR && !TARGET_XTHEADVECTOR;
       case ZVBB_EXT:
         return TARGET_ZVBB;
       case ZVBB_OR_ZVKB_EXT:
@@ -333,10 +348,16 @@ struct function_group_info
         return TARGET_ZVKSH;
       case XTHEADVECTOR_EXT:
 	return TARGET_XTHEADVECTOR;
+      case XTHEADVECTOR_OR_V_EXT:
+	return TARGET_XTHEADVECTOR || TARGET_VECTOR;
       case ZVFBFMIN_EXT:
 	return TARGET_ZVFBFMIN;
       case ZVFBFWMA_EXT:
 	return TARGET_ZVFBFWMA;
+      case XXTCCEV_EXT:
+  return TARGET_XXTCCEV;
+    case XTHEADVSFA_EXT:
+      return TARGET_XTHEADVSFA;
       default:
         gcc_unreachable ();
     }
@@ -414,6 +435,7 @@ public:
   void register_function_group (const function_group_info &);
   void append_name (const char *);
   void append_base_name (const char *);
+  void append_width (int);
   void append_sew (int);
   void append_nf (int);
   char *finish_name ();
@@ -495,7 +517,7 @@ public:
   machine_mode vector_mode (void) const;
   machine_mode index_mode (void) const;
   machine_mode arg_mode (int) const;
-  machine_mode mask_mode (void) const;
+  machine_mode mask_mode (rvv_base_type) const;
   machine_mode ret_mode (void) const;
 
   rtx use_exact_insn (insn_code);
@@ -535,6 +557,9 @@ public:
   /* Return true if intrinsics should apply vl operand.  */
   virtual bool apply_vl_p () const;
 
+  /* Return the mask type for function.  */
+  virtual rvv_base_type get_mask_type () const;
+
   /* Return true if intrinsics should apply tail policy operand.  */
   virtual bool apply_tail_policy_p () const;
 
@@ -549,6 +574,9 @@ public:
 
   /* Return true if intrinsics has merge operand.  */
   virtual bool has_merge_operand_p () const;
+
+  /* Return true if intrinsics has Xuantie coprocessor index operand.  */
+  virtual bool xt_has_idx_operand_p () const;
 
   /* Return true if intrinsics has rounding mode operand.  */
   virtual bool has_rounding_mode_operand_p () const;
@@ -776,6 +804,12 @@ function_base::apply_vl_p () const
   return true;
 }
 
+inline rvv_base_type
+function_base::get_mask_type () const
+{
+  return RVV_BASE_mask;
+}
+
 /* We choose to apply tail policy operand by default since most of the
    intrinsics has tail policy operand.  */
 inline bool
@@ -806,6 +840,14 @@ inline bool
 function_base::has_merge_operand_p () const
 {
   return true;
+}
+
+/* We choose to return false by default since most of the intrinsics does
+   not have Xuantie coprocessor index operand.  */
+inline bool
+function_base::xt_has_idx_operand_p () const
+{
+  return false;
 }
 
 /* We choose to return false by default since most of the intrinsics does

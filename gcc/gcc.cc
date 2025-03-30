@@ -9980,6 +9980,11 @@ set_multilib_dir (void)
       multilib_exclusions,
       multilib_reuse);
 
+  multilib_os_dir =
+    targetm_common.compute_multilib_os (
+      multilib_os_dir,
+      multilib_dir);
+
   if (multilib_dir == NULL && multilib_os_dir != NULL
       && strcmp (multilib_os_dir, ".") == 0)
     {

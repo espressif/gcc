@@ -71,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #define DEF_RVV_TYPE_INDEX(                                                    \
   VECTOR, MASK, SIGNED, UNSIGNED, EEW8_INDEX, EEW16_INDEX, EEW32_INDEX,        \
   EEW64_INDEX, SHIFT, DOUBLE_TRUNC, QUAD_TRUNC, OCT_TRUNC,                     \
+  MAQA_MASK, MAQA_QUAD_SIGNED_TRUNC, MAQA_QUAD_UNSIGNED_TRUNC,			\
   DOUBLE_TRUNC_SCALAR, DOUBLE_TRUNC_SIGNED, DOUBLE_TRUNC_UNSIGNED,             \
   DOUBLE_TRUNC_UNSIGNED_SCALAR, DOUBLE_TRUNC_BFLOAT_SCALAR,			\
   DOUBLE_TRUNC_BFLOAT, DOUBLE_TRUNC_FLOAT, FLOAT, LMUL1, WLMUL1,		\
@@ -677,6 +678,11 @@ DEF_RVV_BASE_TYPE (shift_vector, get_vector_type (type_idx))
 DEF_RVV_BASE_TYPE (double_trunc_vector, get_vector_type (type_idx))
 DEF_RVV_BASE_TYPE (quad_trunc_vector, get_vector_type (type_idx))
 DEF_RVV_BASE_TYPE (oct_trunc_vector, get_vector_type (type_idx))
+DEF_RVV_BASE_TYPE (maqa_mask, get_vector_type (type_idx))
+DEF_RVV_BASE_TYPE (maqa_quad_signed_vector, get_vector_type (type_idx))
+DEF_RVV_BASE_TYPE (maqa_quad_unsigned_vector, get_vector_type (type_idx))
+DEF_RVV_BASE_TYPE (signed_char, signed_char_type_node)
+DEF_RVV_BASE_TYPE (unsigned_char, unsigned_char_type_node)
 DEF_RVV_BASE_TYPE (double_trunc_scalar, get_scalar_type (type_idx))
 DEF_RVV_BASE_TYPE (double_trunc_signed_vector, get_vector_type (type_idx))
 DEF_RVV_BASE_TYPE (double_trunc_unsigned_vector, get_vector_type (type_idx))
@@ -714,11 +720,13 @@ DEF_RVV_BASE_TYPE (vlmul_ext_x32, get_vector_type (type_idx))
 DEF_RVV_BASE_TYPE (vlmul_ext_x64, get_vector_type (type_idx))
 DEF_RVV_BASE_TYPE (size_ptr, build_pointer_type (size_type_node))
 DEF_RVV_BASE_TYPE (tuple_subpart, get_tuple_subpart_type (type_idx))
+DEF_RVV_BASE_TYPE (unsigned_int, unsigned_type_node)
 
 DEF_RVV_VXRM_ENUM (RNU, VXRM_RNU)
 DEF_RVV_VXRM_ENUM (RNE, VXRM_RNE)
 DEF_RVV_VXRM_ENUM (RDN, VXRM_RDN)
 DEF_RVV_VXRM_ENUM (ROD, VXRM_ROD)
+DEF_RVV_VXRM_ENUM (NONE, VXRM_NONE)
 
 DEF_RVV_FRM_ENUM (RNE, FRM_RNE)
 DEF_RVV_FRM_ENUM (RTZ, FRM_RTZ)

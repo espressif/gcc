@@ -918,6 +918,9 @@ calculate_ratio (unsigned int sew, enum vlmul_type vlmul)
 static bool
 autovec_use_vlmax_p (void)
 {
+  if (!riscv_rvv_auto_vectorize)
+    return false;
+
   return rvv_vector_bits == RVV_VECTOR_BITS_SCALABLE
 	  || rvv_vector_bits == RVV_VECTOR_BITS_ZVL;
 }

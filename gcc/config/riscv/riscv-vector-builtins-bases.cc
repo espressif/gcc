@@ -38,6 +38,7 @@
 #include "gimplify.h"
 #include "explow.h"
 #include "emit-rtl.h"
+#include "diagnostic.h"
 #include "tree-vector-builder.h"
 #include "rtx-vector-builder.h"
 #include "riscv-vector-builtins.h"
@@ -661,7 +662,7 @@ template<int UNSPEC>
 class sat_op : public function_base
 {
 public:
-  bool has_rounding_mode_operand_p () const override { return true; }
+  bool has_rounding_mode_operand_p () const override{ return true; }
 
   bool may_require_vxrm_p () const override { return true; }
 
@@ -2214,7 +2215,7 @@ public:
   rtx expand (function_expander &e) const override
   {
     gcc_assert (TARGET_XTHEADVECTOR);
-    return e.use_exact_insn (code_for_pred_th_extract (e.vector_mode ()));
+    return e.use_exact_insn (code_for_pred_th_extract (e.vector_mode (), Pmode));
   }
 };
 
@@ -2807,6 +2808,10 @@ static CONSTEXPR const vfwmaccbf16<HAS_FRM> vfwmaccbf16_frm_obj;
    of class <NAME>_obj.  */
 #define BASE(NAME) \
   namespace bases { const function_base *const NAME = &NAME##_obj; }
+
+#define XUANTIE_VECTOR_BUILTINS_BASES_CC
+#include "xuantie-vector-builtins.cc"
+#undef XUANTIE_VECTOR_BUILTINS_BASES_CC
 
 BASE (vsetvl)
 BASE (vsetvlmax)

@@ -2732,6 +2732,10 @@ static CONSTEXPR const rvv_op_info all_v_vcreate_lmul4_x2_ops
      rvv_arg_type_info (RVV_BASE_vlmul_ext_x2), /* Return type */
      ext_vcreate_args /* Args */};
 
+#define XUANTIE_VECTOR_BUILTINS_CC
+#include "xuantie-vector-builtins.cc"
+#undef XUANTIE_VECTOR_BUILTINS_CC
+
 /* A static operand information for vector_type func (const scalar_type *,
  * size_t) function registration.  */
 static CONSTEXPR const rvv_op_info all_v_scalar_const_ptr_size_ops
@@ -2864,6 +2868,7 @@ static CONSTEXPR const function_type_info function_types[] = {
 #define DEF_RVV_TYPE_INDEX(                                                    \
   VECTOR, MASK, SIGNED, UNSIGNED, EEW8_INDEX, EEW16_INDEX, EEW32_INDEX,        \
   EEW64_INDEX, SHIFT, DOUBLE_TRUNC, QUAD_TRUNC, OCT_TRUNC,                     \
+  MAQA_MASK, MAQA_QUAD_SIGNED_TRUNC, MAQA_QUAD_UNSIGNED_TRUNC,			\
   DOUBLE_TRUNC_SCALAR, DOUBLE_TRUNC_SIGNED, DOUBLE_TRUNC_UNSIGNED,             \
   DOUBLE_TRUNC_UNSIGNED_SCALAR, DOUBLE_TRUNC_BFLOAT_SCALAR,			\
   DOUBLE_TRUNC_BFLOAT, DOUBLE_TRUNC_FLOAT, FLOAT, LMUL1, WLMUL1,		\
@@ -2899,6 +2904,11 @@ static CONSTEXPR const function_type_info function_types[] = {
     VECTOR_TYPE_##DOUBLE_TRUNC,                                                \
     VECTOR_TYPE_##QUAD_TRUNC,                                                  \
     VECTOR_TYPE_##OCT_TRUNC,                                                   \
+    VECTOR_TYPE_##MAQA_MASK,							\
+    VECTOR_TYPE_##MAQA_QUAD_SIGNED_TRUNC,					\
+    VECTOR_TYPE_##MAQA_QUAD_UNSIGNED_TRUNC,					\
+    VECTOR_TYPE_INVALID,                                                       \
+    VECTOR_TYPE_INVALID,                                                       \
     VECTOR_TYPE_##DOUBLE_TRUNC_SCALAR,                                         \
     VECTOR_TYPE_##DOUBLE_TRUNC_SIGNED,                                         \
     VECTOR_TYPE_##DOUBLE_TRUNC_UNSIGNED,                                       \
@@ -3497,11 +3507,11 @@ function_instance::operator== (const function_instance &other) const
 bool
 function_instance::any_type_float_p () const
 {
-  if (FLOAT_MODE_P (TYPE_MODE (get_return_type ())))
+  if (riscv_vector_float_type_p (get_return_type ()))
     return true;
 
   for (int i = 0; op_info->args[i].base_type != NUM_BASE_TYPES; ++i)
-    if (FLOAT_MODE_P (TYPE_MODE (get_arg_type (i))))
+    if (riscv_vector_float_type_p (get_arg_type (i)))
       return true;
 
   return false;
@@ -3639,11 +3649,14 @@ function_builder::apply_predication (const function_instance &instance,
 
   /* These predication types need to apply mask type.  */
   vector_type_index mask_type_index
-    = function_types[instance.type.index].type_indexes[RVV_BASE_mask];
+    = function_types[instance.type.index].type_indexes[instance.base->get_mask_type ()];
   tree mask_type = builtin_types[mask_type_index].vector;
   if (instance.pred == PRED_TYPE_m || instance.pred == PRED_TYPE_tum
       || instance.pred == PRED_TYPE_tumu || instance.pred == PRED_TYPE_mu)
     argument_types.quick_insert (0, mask_type);
+
+  if (instance.base->xt_has_idx_operand_p ())
+    argument_types.quick_insert (0, unsigned_type_node);
 
   /* check if rounding mode parameter need  */
   if (instance.base->has_rounding_mode_operand_p ())
@@ -3935,7 +3948,22 @@ function_expander::add_input_operand (unsigned argno)
 {
   tree arg = CALL_EXPR_ARG (exp, argno);
   rtx x = expand_normal (arg);
-  add_input_operand (TYPE_MODE (TREE_TYPE (arg)), x);
+
+  /* Since the parameter vl of XTheadVector does not support
+     immediate numbers, we need to put it in the register
+     in advance.*/
+  if (TARGET_XTHEADVECTOR
+      && CONST_INT_P (x)
+      && base->apply_vl_p ()
+      && argno == (unsigned) (call_expr_nargs (exp) - 1)
+      && !rtx_equal_p (x, const0_rtx))
+    {
+      rtx tmp = gen_reg_rtx (Pmode);
+      emit_insn (gen_th_pred_vl_mov (Pmode, tmp, x));
+      add_input_operand (TYPE_MODE (TREE_TYPE (arg)), tmp);
+    }
+  else
+    add_input_operand (TYPE_MODE (TREE_TYPE (arg)), x);
 }
 
 /* Since we may normalize vop/vop_tu/vop_m/vop_tumu.. into a single patter.
@@ -3960,10 +3988,10 @@ function_expander::add_mem_operand (machine_mode mode, unsigned argno)
 
 /* Return the machine_mode of the corresponding mask type.  */
 machine_mode
-function_expander::mask_mode (void) const
+function_expander::mask_mode (rvv_base_type mask_type = RVV_BASE_mask) const
 {
   vector_type_index mask_type_index
-    = function_types[type.index].type_indexes[RVV_BASE_mask];
+    = function_types[type.index].type_indexes[mask_type];
   return TYPE_MODE (builtin_types[mask_type_index].vector);
 }
 
@@ -3977,12 +4005,18 @@ function_expander::use_exact_insn (insn_code icode)
   /* Record the offset to get the argument.  */
   int arg_offset = 0;
 
+  int rm_offset = base->apply_vl_p ()
+        ? call_expr_nargs (exp) - 2 : call_expr_nargs (exp) - 1;
+
+  if (base->xt_has_idx_operand_p ())
+    add_input_operand (arg_offset++);
+
   if (base->use_mask_predication_p ())
     {
       if (use_real_mask_p (pred))
 	add_input_operand (arg_offset++);
       else
-	add_all_one_mask_operand (mask_mode ());
+	add_all_one_mask_operand (mask_mode (base->get_mask_type ()));
     }
 
   /* Store operation doesn't have merge operand.  */
@@ -3997,7 +4031,7 @@ function_expander::use_exact_insn (insn_code icode)
   for (int argno = arg_offset; argno < call_expr_nargs (exp); argno++)
     {
       if (base->has_rounding_mode_operand_p ()
-	  && argno == call_expr_nargs (exp) - 2)
+	  && argno == rm_offset)
 	{
 	  /* Since the rounding mode argument position is not consistent with
 	     the instruction pattern, we need to skip rounding mode argument
@@ -4016,7 +4050,7 @@ function_expander::use_exact_insn (insn_code icode)
     add_input_operand (Pmode, get_avl_type_rtx (avl_type::NONVLMAX));
 
   if (base->has_rounding_mode_operand_p ())
-    add_input_operand (call_expr_nargs (exp) - 2);
+    add_input_operand (rm_offset);
 
   /* The RVV floating-point only support dynamic rounding mode in the
      FRM register.  */
@@ -4435,6 +4469,8 @@ registered_function::overloaded_hash () const
   h.add (overload_name, strlen (overload_name));
   for (unsigned int i = 0; i < argument_types.length (); i++)
     {
+      if (instance.base->xt_has_idx_operand_p () && i == 0)
+  continue;
       type = argument_types[i];
       unsigned_p = POINTER_TYPE_P (type) ? TYPE_UNSIGNED (TREE_TYPE (type))
 					 : TYPE_UNSIGNED (type);
@@ -4505,6 +4541,30 @@ builtin_type_p (const_tree type)
   return lookup_vector_type_attribute (type);
 }
 
+static void
+handle_pragma_vector_for_lto (bool reinit)
+{
+  struct pragma_intrinsic_flags backup_flags;
+
+  riscv_pragma_intrinsic_flags_pollute (&backup_flags);
+
+  riscv_option_override ();
+  init_adjust_machine_modes ();
+
+  if (!reinit)
+    register_builtin_types ();
+  else
+    register_builtin_types_on_null ();
+
+  handle_pragma_vector ();
+
+  riscv_pragma_intrinsic_flags_restore (&backup_flags);
+
+  /* Re-initialize after the flags are restored.  */
+  riscv_option_override ();
+  init_adjust_machine_modes ();
+}
+
 /* Initialize all compiler built-ins related to RVV that should be
    defined at start-up.  */
 void
@@ -4513,9 +4573,11 @@ init_builtins ()
   rvv_switcher rvv;
   if (!TARGET_VECTOR)
     return;
-  register_builtin_types ();
+
   if (in_lto_p)
-    handle_pragma_vector ();
+    handle_pragma_vector_for_lto (false);
+  else
+    register_builtin_types ();
 }
 
 /* Reinitialize builtins similar to init_builtins,  but only the null
@@ -4528,10 +4590,10 @@ reinit_builtins ()
   if (!TARGET_VECTOR)
     return;
 
-  register_builtin_types_on_null ();
-
   if (in_lto_p)
-    handle_pragma_vector ();
+    handle_pragma_vector_for_lto (true);
+  else
+    register_builtin_types_on_null ();
 }
 
 /* Implement TARGET_VERIFY_TYPE_CONTEXT for RVV types.  */
@@ -4540,6 +4602,10 @@ verify_type_context (location_t loc, type_context_kind context, const_tree type,
 		     bool silent_p)
 {
   if (!sizeless_type_p (type))
+    return true;
+
+  /* Non-variable length type do not do things.  */
+  if (GET_MODE_SIZE (TYPE_MODE (type)).is_constant ())
     return true;
 
   switch (context)
@@ -4620,7 +4686,7 @@ verify_type_context (location_t loc, type_context_kind context, const_tree type,
 static void
 register_vxrm ()
 {
-  auto_vec<string_int_pair, 4> values;
+  auto_vec<string_int_pair, 5> values;
 #define DEF_RVV_VXRM_ENUM(NAME, VALUE)                                          \
   values.quick_push (string_int_pair ("__RISCV_VXRM_" #NAME, VALUE));
 #include "riscv-vector-builtins.def"

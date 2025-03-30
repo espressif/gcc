@@ -209,6 +209,7 @@
 ;; <u> expands to an empty string when doing a signed operation and
 ;; "u" when doing an unsigned operation.
 (define_code_attr u [(sign_extend "") (zero_extend "u")
+		     (ashiftrt "") (lshiftrt "u")
 		     (gt "") (gtu "u")
 		     (ge "") (geu "u")
 		     (lt "") (ltu "u")
@@ -313,6 +314,8 @@
 				 (popcount "cpop")
 				 (rotate "rol")
 				 (rotatert "ror")])
+
+(include "xuantie-ext-iterators.md")
 
 ;; -------------------------------------------------------------------
 ;; Int Iterators.

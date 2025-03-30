@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include <stdbool.h>
 #include "config/riscv/riscv-opts.h"
+#include "config/riscv/xuantie-ext.h"
 
 #define SWITCHABLE_TARGET 1
 
@@ -57,7 +58,11 @@ extern const char *riscv_arch_help (int argc, const char **argv);
   { "riscv_expand_arch_from_cpu", riscv_expand_arch_from_cpu },		\
   { "riscv_default_mtune", riscv_default_mtune },			\
   { "riscv_multi_lib_check", riscv_multi_lib_check },			\
-  { "riscv_arch_help", riscv_arch_help },
+  { "riscv_arch_help", riscv_arch_help },				\
+  { "xt_expand_abi_from_arch", xt_expand_abi_from_arch },		\
+  { "xt_expand_abi_from_cpu", xt_expand_abi_from_cpu },			\
+  { "xt_get_arch_spec_path", xt_get_arch_spec_path },			\
+  { "xt_expand_tune_form_arch", xt_expand_tune_form_arch },		\
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
    --with-arch is ignored if -march or -mcpu is specified.
@@ -69,12 +74,19 @@ extern const char *riscv_arch_help (int argc, const char **argv);
    But using default -march/-mtune value if -mcpu don't have valid option.  */
 #define OPTION_DEFAULT_SPECS \
   {"tune", "%{!mtune=*:"						\
-	   "  %{!mcpu=*:-mtune=%(VALUE)}"				\
+	   "  %{!mcpu=*:"						\
+	   "    %{!march=*:-mtune=%(VALUE)}"				\
+	   "    %{march=*:"						\
+	   "	  -mtune=%:xt_expand_tune_form_arch(%* %(VALUE))}}"	\
 	   "  %{mcpu=*:-mtune=%:riscv_default_mtune(%* %(VALUE))}}" },	\
   {"arch", "%{!march=*:"						\
 	   "  %{!mcpu=*:-march=%(VALUE)}"				\
 	   "  %{mcpu=*:%:riscv_expand_arch_from_cpu(%* %(VALUE))}}" },	\
-  {"abi", "%{!mabi=*:-mabi=%(VALUE)}" },				\
+  {"abi", "%{!mabi=*:"							\
+	   "  %{!mcpu=*:"						\
+	   "    %{!march=*:-mabi=%(VALUE)}"				\
+	   "    %{march=*:%:xt_expand_abi_from_arch(%*)}}"		\
+	   "  %{mcpu=*:%:xt_expand_abi_from_cpu(%* %(VALUE))}}" },	\
   {"isa_spec", "%{!misa-spec=*:-misa-spec=%(VALUE)}" },			\
   {"tls", "%{!mtls-dialect=*:-mtls-dialect=%(VALUE)}"},         	\
 
@@ -132,6 +144,7 @@ ASM_MISA_SPEC
 /* The mapping from gcc register number to DWARF 2 CFA column number.  */
 #define DWARF_FRAME_REGNUM(REGNO)                                              \
   (FRM_REG_P (REGNO)	? RISCV_DWARF_FRM                                      \
+   : XT_RVM_MATRIX_REG_P (REGNO) ? XT_RVM_DWARF_MATRIX (REGNO)                 \
    : VXRM_REG_P (REGNO) ? RISCV_DWARF_VXRM                                     \
    : VL_REG_P (REGNO)	? RISCV_DWARF_VL                                       \
    : VTYPE_REG_P (REGNO)                                                       \
@@ -331,7 +344,9 @@ ASM_MISA_SPEC
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   /* Others.  */							\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
+  1, 1, 1, 1, 1, 1, 1, 1,   \
+  /* Matrix registers.  */						\
+  0, 0, 0, 0, 0, 0, 0, 0,			\
   /* Vector registers.  */						\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0			\
@@ -349,7 +364,9 @@ ASM_MISA_SPEC
   1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,			\
   /* Others.  */							\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
+  1, 1, 1, 1, 1, 1, 1, 1,       \
+  /* Matrix registers.  */						\
+  1, 1, 1, 1, 1, 1, 1, 1,			\
   /* Vector registers.  */						\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1			\
@@ -512,6 +529,8 @@ enum reg_class
   VM_REGS,			/* v0.t registers */
   VD_REGS,			/* vector registers except v0.t */
   V_REGS,			/* vector registers */
+  MATRIX_GR_REGS,		/* matrix GPR */
+  MATRIX_REGS,			/* matrix register */
   ALL_REGS,			/* all registers */
   LIM_REG_CLASSES		/* max value + 1 */
 };
@@ -535,6 +554,8 @@ enum reg_class
   "VM_REGS",								\
   "VD_REGS",								\
   "V_REGS",								\
+  "MATRIX_GR_REGS", 							\
+  "MATRIX_REGS", 							\
   "ALL_REGS"								\
 }
 
@@ -560,7 +581,9 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000000, 0x00000001 },	/* V0_REGS */		\
   { 0x00000000, 0x00000000, 0x00000000, 0xfffffffe },	/* VNoV0_REGS */	\
   { 0x00000000, 0x00000000, 0x00000000, 0xffffffff },	/* V_REGS */		\
-  { 0xffffffff, 0xffffffff, 0x00000003, 0xffffffff }	/* ALL_REGS */		\
+  { 0x0000ff00, 0x00000000, 0x00000000, 0x00000000 },	/* MATRIX_GR_REGS */\
+  { 0x00000000, 0x00000000, 0xff000000, 0x00000000 },	/* MATRIX_REGS */\
+  { 0xffffffff, 0xffffffff, 0xff000003, 0xffffffff }	/* ALL_REGS */		\
 }
 
 /* A C expression whose value is a register class containing hard
@@ -606,6 +629,8 @@ enum reg_class
   124, 125, 126, 127,							\
   /* The vector mask register.  */					\
   96,									\
+  /* Matrix register.  */						\
+  88, 89, 90, 91, 92, 93, 94, 95, 					\
   /* None of the remaining classes have defined call-saved		\
      registers.  */							\
   64, 65, 66, 67							\
@@ -945,8 +970,8 @@ extern enum riscv_cc get_riscv_cc (const rtx use);
   "fs8", "fs9", "fs10","fs11","ft8", "ft9", "ft10","ft11",	\
   "arg", "frame", "vl", "vtype", "vxrm", "frm", "vxsat", "N/A", \
   "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A",	\
-  "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A",	\
-  "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A",	\
+  "N/A", "N/A", "N/A", "N/A", "N/A", "xm", "xn", "xk",	\
+  "m0",  "m1",  "m2",  "m3",  "m4",  "m5",  "m6",  "m7",	\
   "v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",	\
   "v8",  "v9",  "v10", "v11", "v12", "v13", "v14", "v15",	\
   "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",	\
@@ -1221,7 +1246,7 @@ extern void riscv_remove_unneeded_save_restore_calls (void);
 #define DWARF_FRAME_REGISTERS (FIRST_PSEUDO_REGISTER + 1 /* VLENB */)
 
 #define DWARF_REG_TO_UNWIND_COLUMN(REGNO) \
-  ((REGNO == RISCV_DWARF_VLENB) ? (FIRST_PSEUDO_REGISTER + 1) : REGNO)
+  ((REGNO == RISCV_DWARF_VLENB || REGNO == XT_RVM_DWARF_MLENB) ? (FIRST_PSEUDO_REGISTER + 1) : REGNO)
 
 /* Like s390, riscv also defined this macro for the vector comparision.  Then
    the simplify-rtx relational_result will canonicalize the result to the

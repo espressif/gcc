@@ -1085,6 +1085,12 @@ two SET insns or a compare and a conditional jump and this hook should\n\
 validate any dependencies needed to fuse the two insns together.",
  bool, (rtx_insn *prev, rtx_insn *curr), NULL)
 
+DEFHOOK
+(misc_fusion_pair_p,
+ "Like @samp{TARGET_SCHED_MACRO_FUSION_PAIR_P}. But there is no need that\n\
+  (@var{prev} and @var{curr}) are both single set or @var{curr}) is a condjump.",
+ bool, (rtx_insn *prev, rtx_insn *curr), NULL)
+
 /* The following member value is a pointer to a function called
    after evaluation forward dependencies of insns in chain given
    by two parameter values (head and tail correspondingly).  */
@@ -3783,6 +3789,12 @@ particular mode from being used for block comparisons by returning a\n\
 negative number from this hook.",
  int, (machine_mode mode),
  default_compare_by_pieces_branch_ratio)
+
+DEFHOOK
+(by_pieces_mode_supported_p,
+ "Return true if the MODE @var{mode} supports pieces operations.",
+ bool, (fixed_size_mode mode),
+ default_by_pieces_mode_supported_p)
 
 DEFHOOK
 (slow_unaligned_access,
@@ -7137,6 +7149,10 @@ DEFHOOKPOD
 following it should not be run.  Usually true only for virtual assembler\n\
 targets.",
 bool, false)
+
+DEFHOOK
+(iv_gen_load_index, "*",
+bool, (HOST_WIDE_INT loop_niter, machine_mode mem_mode), NULL)
 
 /* Leave the boolean fields at the end.  */
 

@@ -54,6 +54,10 @@ extern enum riscv_isa_spec_class riscv_isa_spec;
 /* Keep this list in sync with define_attr "tune" in riscv.md.  */
 enum riscv_microarchitecture_type {
   generic,
+  c910,
+  c906v,
+  c908,
+  c907,
   sifive_7,
   sifive_p400,
   sifive_p600,

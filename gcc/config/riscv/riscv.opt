@@ -164,6 +164,167 @@ Enable the CSR checking for the ISA-dependent CSR and the read-only CSR.
 The ISA-dependent CSR are only valid when the specific ISA is set.  The
 read-only CSR can not be written by the CSR instructions.
 
+; =============== Compilation Options for Xuan Tie =====================
+
+m4k-opts
+Target Var(riscv_4k_optimize) Init(0)
+Optimize load instruction generation of loop.
+
+mexpand-split-imm
+Target Bool Var(riscv_expand_split_imm) Init(1) Undocumented
+Enable split immediate operand in expand.
+
+mccrt
+Target Var(riscv_libcc_runtime)
+Use code-size first compiler runtime instead of libgcc, it's only supported in rv32.
+
+munaligned-libcall
+Target Var(riscv_unaligned_libcall) Init(0)
+Enable libcall for unaligned access.
+
+mxor-combine
+Target Var(riscv_combine_xor) Init(1) Undocumented
+Optimize xor combine operation with constant.
+
+mdelete-sext
+Target Var(riscv_insn_dsext1) Init(1) Undocumented
+Optimize code by deleting redundancy sext, insert before ree pass.
+
+mdelete-sext2
+Target Var(riscv_insn_dsext2) Init(1) Undocumented
+Optimize code by deleting redundancy sext, insert after ree pass.
+
+mload-merging
+Target Var(riscv_load_merging) Init(0) Undocumented
+Enable adjacent loads, and then extract for each element.
+
+mfclass
+Target Var(riscv_insn_fclass) Init(1) Undocumented
+Enable fclass instruction.
+
+mlcm-mcfg
+Target Var(riscv_lcm_mcfg) Init(1) Undocumented
+Redundancy elimination optimization for mcfg instructions using the LCM algorithm.
+
+mextend_rtl_ifcvt_cost
+Target Var(riscv_extend_rtl_ifcvt_cost) Init(1) Undocumented
+Consider the set insn cost in test_bb.
+
+mrvv-auto-vectorize
+Target Var(riscv_rvv_auto_vectorize) Init(0) Undocumented
+Support for automatic vectorization for rvv.
+
+maggressive-schedule
+Target Bool Var(riscv_aggressive_schedule) Init(0) Undocumented
+Enable schedule an instruction to predecessor block even if it has more than one successor.
+
+mfwprop2-address-opts
+Target Var(riscv_fwprop2_address_optimize) Init(1) Undocumented
+Optimize the gain of th_mem address for fwprop2.
+
+mloop-dup-header-for-mod-pow2p-opts
+Target Var(riscv_loop_dup_header_for_mod_pow2p_optimize) Init(1) Undocumented
+Optimize loop dup header for mod pow2p.
+
+; ------------------------- Compatibility for T-Head  -------------------------
+
+mdelete-vsetvl
+Target
+FIXME: This option is not supported yet.
+
+mdelete-vsetvl2
+Target
+FIXME: This option is not supported yet.
+
+mdelete-vsetvl-globally
+Target
+FIXME: This option is not supported yet.
+
+mdelete-read-vlenb
+Target
+FIXME: This option is not supported yet.
+
+mmove-loop-vsetvl
+Target
+FIXME: This option is not supported yet.
+
+mdelete-vsetvl-zero
+Target
+FIXME: This option is not supported yet.
+
+mdelete-vsetvl-zero-bbs
+Target
+FIXME: This option is not supported yet.
+
+mdelete-vsetvl-v0p7
+Target
+FIXME: This option is not supported yet.
+
+mfwprop-vmov-v0p7
+Target
+FIXME: This option is not supported yet.
+
+mdelete-fsrm
+Target
+FIXME: This option is not supported yet.
+
+mcombine-copy
+Target
+FIXME: This option is not supported yet.
+
+Wbuiltin-const-overflow
+Target
+FIXME: This option is not supported yet.
+
+mdup-loop-header
+Target
+FIXME: This option is not supported yet.
+
+mipa-unhot-inline
+Target Var(riscv_ipa_unhot_inline) Init(0) Undocumented
+Make not big speedup code inline more.
+
+minvariant-as-constant
+Target Var(riscv_invariant_as_constant) Init(1) Undocumented
+Treat invariant as constant when compute the cost of unroll loop.
+
+mrnreg-delete-noop-move
+Target
+FIXME: This option is not supported yet.
+
+mcombine-cse
+Target
+FIXME: This option is not supported yet.
+
+mriscv_fli_value_by_int
+Target
+FIXME: This option is not supported yet.
+
+msignedness-cmpiv
+Target Bool Var(riscv_signedness_comparison_iv) Init(1) Undocumented
+Enable signedness comparison when canonicalize induce varaible.
+
+mthread-jumps1
+Target Bool Var(riscv_thread_jumps1) Init(1)
+Enable first pass of thread jumps optimization.
+
+miv-adjust-addr-cost
+Target Bool Var(riscv_iv_adjust_addr_cost) Init(1)
+Enable address cost adjustment in pass loop-ivopts.
+
+mrvv-v0p10-compatible
+Target Bool Var(riscv_rvv_v0p10_compatible_p) Init(0)
+Enable compatible support for rvv 0.10 version intrinsics.
+
+mexpand-addsi-extend
+Target Bool Var(riscv_expand_addsi_extend) Init(1)
+Enable addsi extend operand in expand.
+
+pthread
+Driver
+
+; ======================================================================
+
 momit-leaf-frame-pointer
 Target Mask(OMIT_LEAF_FRAME_POINTER) Save
 Omit the frame pointer in leaf functions.
@@ -483,25 +644,53 @@ Mask(XTHEADBB)      Var(riscv_xthead_subext)
 
 Mask(XTHEADBS)      Var(riscv_xthead_subext)
 
+Mask(XTHEADC)       Var(riscv_xthead_subext)
+
 Mask(XTHEADCMO)     Var(riscv_xthead_subext)
 
 Mask(XTHEADCONDMOV) Var(riscv_xthead_subext)
+
+Mask(XTHEADE)       Var(riscv_xthead_subext)
 
 Mask(XTHEADFMEMIDX) Var(riscv_xthead_subext)
 
 Mask(XTHEADFMV)     Var(riscv_xthead_subext)
 
+Mask(XTHEADFPP)     Var(riscv_xthead_subext)
+
 Mask(XTHEADINT)     Var(riscv_xthead_subext)
 
 Mask(XTHEADMAC)     Var(riscv_xthead_subext)
+
+Mask(XTHEADMATRIX)  Var(riscv_xthead_subext)
 
 Mask(XTHEADMEMIDX)  Var(riscv_xthead_subext)
 
 Mask(XTHEADMEMPAIR) Var(riscv_xthead_subext)
 
+Mask(XTHEADSE)      Var(riscv_xthead_subext)
+
 Mask(XTHEADSYNC)    Var(riscv_xthead_subext)
 
+Mask(XTHEADVDOT)    Var(riscv_xthead_subext)
+
+Mask(XTHEADVSFA)    Var(riscv_xthead_subext)
+
 Mask(XTHEADVECTOR)  Var(riscv_xthead_subext)
+
+Mask(XXTCCEI)    Var(riscv_xthead_subext)
+
+Mask(XXTCCEF)    Var(riscv_xthead_subext)
+
+Mask(XXTCCEV)    Var(riscv_xthead_subext)
+
+Mask(DSP)	    Var(riscv_xthead_subext)
+
+Mask(ZPN)	    Var(riscv_xthead_subext)
+
+Mask(ZPSFOPERAND)   Var(riscv_xthead_subext)
+
+Mask(ZPRVSFEXTRA)   Var(riscv_xthead_subext)
 
 TargetVariable
 int riscv_xventana_subext
@@ -609,7 +798,7 @@ EnumValue
 Enum(stringop_strategy) String(vector) Value(STRATEGY_VECTOR)
 
 mstringop-strategy=
-Target RejectNegative Joined Enum(stringop_strategy) Var(stringop_strategy) Init(STRATEGY_AUTO)
+Target RejectNegative Joined Enum(stringop_strategy) Var(stringop_strategy) Init(STRATEGY_SCALAR)
 Specify stringop expansion strategy.
 
 Enum
