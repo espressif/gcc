@@ -694,3 +694,7 @@ Enable (default) or disable generation of vector segment load/store instructions
 mcm-popret
 Target Var(TARGET_CM_POPRET) Init(1)
 Enable use of cm.popret[z] for return sequences. Otherwise split to cm.pop + ret.
+
+mcm-push-reverse
+Target Var(TARGET_CM_PUSH_REVERSE) Init(1)
+Enable reverse order when saving registers x27..x1 to the stack (standard behavior). Otherwise use forward order.
