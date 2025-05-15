@@ -8376,7 +8376,11 @@ riscv_adjust_multi_push_cfi_prologue (int saved_size)
     mask |= 1 << (zcmp_save_reg_order[i] - GP_REG_FIRST);
   }
 
-  for (int regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
+  int start = TARGET_CM_PUSH_REVERSE ? GP_REG_LAST : GP_REG_FIRST;
+  int end = TARGET_CM_PUSH_REVERSE ? GP_REG_FIRST : GP_REG_LAST;
+  int step = TARGET_CM_PUSH_REVERSE ? -1 : 1;
+
+  for (int regno = start; regno != end; regno += step)
     if (BITSET_P (mask & MULTI_PUSH_GPR_MASK, regno - GP_REG_FIRST))
       {
 	/* The save order is s11-s0, ra
