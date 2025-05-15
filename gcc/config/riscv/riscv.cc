@@ -8987,9 +8987,10 @@ riscv_gen_multi_pop_insn (bool use_multi_pop_normal, unsigned mask,
 			  unsigned multipop_size)
 {
   rtx insn;
+  rtx ra = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
   unsigned regs_count = riscv_multi_push_regs_count (mask);
 
-  if (!use_multi_pop_normal)
+  if (!use_multi_pop_normal || !TARGET_CM_POPRET)
     insn = emit_insn (
       riscv_gen_multi_push_pop_insn (POP_IDX, multipop_size, regs_count));
   else
@@ -8999,6 +9000,9 @@ riscv_gen_multi_pop_insn (bool use_multi_pop_normal, unsigned mask,
   rtx dwarf = riscv_adjust_multi_pop_cfi_epilogue (multipop_size);
   RTX_FRAME_RELATED_P (insn) = 1;
   REG_NOTES (insn) = dwarf;
+
+  if (use_multi_pop_normal && !TARGET_CM_POPRET)
+    emit_jump_insn (gen_simple_return_internal (ra));
 }
 
 /* Expand an "epilogue", "sibcall_epilogue", or "eh_return_internal" pattern;

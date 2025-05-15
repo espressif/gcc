@@ -690,3 +690,7 @@ Specifies whether the fence.tso instruction should be used.
 mautovec-segment
 Target Integer Var(riscv_mautovec_segment) Init(1)
 Enable (default) or disable generation of vector segment load/store instructions.
+
+mcm-popret
+Target Var(TARGET_CM_POPRET) Init(1)
+Enable use of cm.popret[z] for return sequences. Otherwise split to cm.pop + ret.
