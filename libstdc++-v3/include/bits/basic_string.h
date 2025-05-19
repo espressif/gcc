@@ -1257,11 +1257,14 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        * @since C++23
        */
       template<typename _Operation>
-	constexpr void
+	_GLIBCXX20_CONSTEXPR void
 	resize_and_overwrite(size_type __n, _Operation __op);
-#endif
 
-#if __cplusplus >= 201103L
+      /// Non-standard version of resize_and_overwrite for backward compatibility.
+      template<typename _Operation>
+	constexpr void
+	__resize_and_overwrite(size_type __n, _Operation __op);
+#elif __cplusplus >= 201103L
       /// Non-standard version of resize_and_overwrite for C++11 and above.
       template<typename _Operation>
 	_GLIBCXX20_CONSTEXPR void
@@ -4810,7 +4813,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
   }
 
 #if __glibcxx_constexpr_string >= 201907L
-  constexpr
+  _GLIBCXX20_CONSTEXPR
 #endif
   inline wstring
 #ifdef __glibcxx_string_view // >= C++17
