@@ -647,7 +647,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #endif  // _GLIBCXX_USE_CXX11_ABI
    
 #if __glibcxx_constexpr_string >= 201907L
-# define _GLIBCXX_STRING_CONSTEXPR constexpr
+# define _GLIBCXX_STRING_CONSTEXPR _GLIBCXX20_CONSTEXPR
 #else
 # define _GLIBCXX_STRING_CONSTEXPR
 #endif
