@@ -16764,7 +16764,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
   # Perhaps use strerror_r if available, and strerror_l isn't.
   ac_save_CFLAGS="$CFLAGS"
-  CFLAGS="-Wimplicit-function-declaration -Werror"
+  CFLAGS="-Wimplicit-function-declaration -Werror -Wno-complain-wrong-lang"
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #define _GNU_SOURCE 1
@@ -51178,7 +51178,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for size_t as unsigned int" >&5
 $as_echo_n "checking for size_t as unsigned int... " >&6; }
 ac_save_CFLAGS="$CFLAGS"
-CFLAGS="-Werror"
+CFLAGS="-Werror -Wno-complain-wrong-lang"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -51208,7 +51208,7 @@ $as_echo "$glibcxx_size_t_is_i" >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ptrdiff_t as int" >&5
 $as_echo_n "checking for ptrdiff_t as int... " >&6; }
 ac_save_CFLAGS="$CFLAGS"
-CFLAGS="-Werror"
+CFLAGS="-Werror -Wno-complain-wrong-lang"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -51260,7 +51260,7 @@ if ${glibcxx_cv_have_attribute_visibility+:} false; then :
 else
 
   save_CFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS -Werror"
+  CFLAGS="$CFLAGS -Werror -Wno-complain-wrong-lang"
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 void __attribute__((visibility("hidden"))) foo(void) { }
