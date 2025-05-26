@@ -2861,7 +2861,7 @@ AC_DEFUN([GLIBCXX_ENABLE_CLOCALE], [
 
   # Perhaps use strerror_r if available, and strerror_l isn't.
   ac_save_CFLAGS="$CFLAGS"
-  CFLAGS="-Wimplicit-function-declaration -Werror"
+  CFLAGS="-Wimplicit-function-declaration -Werror -Wno-complain-wrong-lang"
   AC_TRY_COMPILE([#define _GNU_SOURCE 1
 	     	  #include <string.h>
 		  #include <locale.h>],
@@ -4073,7 +4073,7 @@ if test x$enable_libstdcxx_visibility = xyes ; then
   AC_CACHE_CHECK([whether the target supports hidden visibility],
 		 glibcxx_cv_have_attribute_visibility, [
   save_CFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS -Werror"
+  CFLAGS="$CFLAGS -Werror -Wno-complain-wrong-lang"
   AC_TRY_COMPILE([void __attribute__((visibility("hidden"))) foo(void) { }],
 		 [], glibcxx_cv_have_attribute_visibility=yes,
 		 glibcxx_cv_have_attribute_visibility=no)
@@ -4314,7 +4314,7 @@ fi
 # typeid(std::size_t).name()[0] to do direct substitution.
 AC_MSG_CHECKING([for size_t as unsigned int])
 ac_save_CFLAGS="$CFLAGS"
-CFLAGS="-Werror"
+CFLAGS="-Werror -Wno-complain-wrong-lang"
 AC_TRY_COMPILE(, [__SIZE_TYPE__* stp; unsigned int* uip; stp = uip;],
 		 [glibcxx_size_t_is_i=yes], [glibcxx_size_t_is_i=no])
 CFLAGS=$ac_save_CFLAGS
@@ -4325,7 +4325,7 @@ AC_MSG_RESULT([$glibcxx_size_t_is_i])
 
 AC_MSG_CHECKING([for ptrdiff_t as int])
 ac_save_CFLAGS="$CFLAGS"
-CFLAGS="-Werror"
+CFLAGS="-Werror -Wno-complain-wrong-lang"
 AC_TRY_COMPILE(, [__PTRDIFF_TYPE__* ptp; int* ip; ptp = ip;],
 		 [glibcxx_ptrdiff_t_is_i=yes], [glibcxx_ptrdiff_t_is_i=no])
 CFLAGS=$ac_save_CFLAGS
