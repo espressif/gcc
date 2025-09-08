@@ -77,6 +77,7 @@ extern const char *riscv_arch_help (int argc, const char **argv);
   {"abi", "%{!mabi=*:-mabi=%(VALUE)}" },				\
   {"isa_spec", "%{!misa-spec=*:-misa-spec=%(VALUE)}" },			\
   {"tls", "%{!mtls-dialect=*:-mtls-dialect=%(VALUE)}"},         	\
+  {"espv_spec", "%{!mespv-spec=*:-mespv-spec=%(VALUE)}" },			\
 
 #ifdef IN_LIBGCC2
 #undef TARGET_64BIT
@@ -108,6 +109,7 @@ extern const char *riscv_arch_help (int argc, const char **argv);
 %{mno-relax} \
 %{mbig-endian} \
 %{mlittle-endian} \
+%{mespv-spec=*} \
 %(subtarget_asm_spec)" \
 ASM_MISA_SPEC
 

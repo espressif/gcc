@@ -162,4 +162,11 @@ enum riscv_tls_type {
 #define TARGET_VECTOR_AUTOVEC_SEGMENT					       \
   (TARGET_VECTOR && riscv_mautovec_segment)
 
+enum riscv_xespv_spec_class {
+  XESPV_SPEC_CLASS_2P1,
+  XESPV_SPEC_CLASS_2P2,
+};
+
+extern enum riscv_xespv_spec_class riscv_xespv_spec;
+
 #endif /* ! GCC_RISCV_OPTS_H */
