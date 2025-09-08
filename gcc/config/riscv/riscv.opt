@@ -625,3 +625,17 @@ Enum(tls_type) String(desc) Value(TLS_DESCRIPTORS)
 mtls-dialect=
 Target RejectNegative Joined Enum(tls_type) Var(riscv_tls_dialect) Init(TLS_TRADITIONAL) Save
 Specify TLS dialect.
+
+Enum
+Name(xespv_spec_class) Type(enum riscv_xespv_spec_class)
+Supported XESPV extension versions (for use with the -mespv-spec= option):
+
+EnumValue
+Enum(xespv_spec_class) String(2p1) Value(XESPV_SPEC_CLASS_2P1)
+
+EnumValue
+Enum(xespv_spec_class) String(2p2) Value(XESPV_SPEC_CLASS_2P2)
+
+mespv-spec=
+Target RejectNegative Joined Enum(xespv_spec_class) Var(riscv_xespv_spec) Init(XESPV_SPEC_CLASS_2P2)
+Set the version of RISC-V XESPV spec.

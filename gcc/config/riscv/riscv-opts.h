@@ -160,4 +160,11 @@ enum riscv_tls_type {
   TLS_DESCRIPTORS
 };
 
+enum riscv_xespv_spec_class {
+  XESPV_SPEC_CLASS_2P1,
+  XESPV_SPEC_CLASS_2P2,
+};
+
+extern enum riscv_xespv_spec_class riscv_xespv_spec;
+
 #endif /* ! GCC_RISCV_OPTS_H */
