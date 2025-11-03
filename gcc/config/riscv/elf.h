@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 -X \
 %{mbig-endian:-EB} \
 %{mlittle-endian:-EL} \
+%{mespv-spec=*} \
 %{shared}"
 
 /* Link against Newlib libraries, because the ELF backend assumes Newlib.
