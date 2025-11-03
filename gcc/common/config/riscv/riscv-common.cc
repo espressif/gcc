@@ -386,7 +386,7 @@ static const struct riscv_ext_version riscv_ext_version_table[] =
 
   {"xesppie", ISA_SPEC_CLASS_NONE, 1, 0},
 
-  {"xespv", ISA_SPEC_CLASS_NONE, 2, 1},
+  {"xespv", ISA_SPEC_CLASS_NONE, 2, 2},
   {"xesploop", ISA_SPEC_CLASS_NONE, 1, 0},
 
   /* Terminate the list.  */
