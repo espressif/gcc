@@ -2025,6 +2025,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set_attr "length"	"6")])
 
 (define_insn "*ubtrue"
@@ -2147,6 +2148,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set (attr "length")
 	(if_then_else (match_test "TARGET_DENSITY
 				   && IN_RANGE (INTVAL (operands[1]), -32, 95)")
@@ -2205,6 +2207,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set (attr "length")
 	(if_then_else (match_test "(TARGET_DENSITY && INTVAL (operands[1]) == 0x7FFFFFFF)
 				   && INTVAL (operands[2]) == 0")
@@ -2245,6 +2248,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set (attr "length")
 	(if_then_else (match_test "TARGET_DENSITY && INTVAL (operands[2]) == 0")
 		      (const_int 5)
@@ -2286,6 +2290,7 @@
 }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "cond")
    (set (attr "length")
 	(if_then_else (match_test "TARGET_DENSITY
 				   && (uint32_t)INTVAL (operands[2]) >> ctz_hwi (INTVAL (operands[1])) == 0")
@@ -2314,7 +2319,6 @@
   "loop\t%0, %l1_LEND"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
-   (set_attr "condjmp" "cond")
    (set_attr "length"	"3")])
 
 (define_insn "zero_cost_loop_end"
@@ -2332,7 +2336,6 @@
   "#"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
-   (set_attr "condjmp" "cond")
    (set_attr "length"	"0")])
 
 (define_insn "loop_end"
@@ -2568,6 +2571,7 @@
   "j\t%l0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 (define_expand "indirect_jump"
@@ -2589,6 +2593,7 @@
   "jx\t%0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 
@@ -2618,6 +2623,7 @@
   "jx\t%0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
+   (set_attr "condjmp" "uncond")
    (set_attr "length"	"3")])
 
 
