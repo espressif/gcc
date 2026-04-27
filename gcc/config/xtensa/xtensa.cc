@@ -3207,7 +3207,7 @@ xtensa_psram_cache_fix_dupldst_reorg ()
         {
           FOR_EACH_SUBINSN (subinsn, insn)
           {
-            handle_fix_dupldst_reorg (insn);
+            handle_fix_dupldst_reorg (subinsn);
           }
         }
     }
