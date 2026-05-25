@@ -5114,7 +5114,12 @@ xtensa_insn_cost (rtx_insn *insn, bool speed)
 	      return COSTS_N_INSNS (n * 4);
 
 	    case TYPE_DIV32:
-	      return COSTS_N_INSNS (n * 16);
+	      /* The cost of hardware division is 1 cycles:
+	       * measured on esp32, esp32s2, esp32s3.
+	       *
+	       * See: https://github.com/espressif/crosstool-NG/issues/86
+	       */
+	      return COSTS_N_INSNS (1);
 
 	    default:
 	      break;
