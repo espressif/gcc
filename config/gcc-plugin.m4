@@ -31,6 +31,31 @@ AC_DEFUN([GCC_ENABLE_PLUGINS],
        elif test x"$enable_plugin" = x"yes"; then
          # Use make's target variable to derive import library name.
          pluginlibs='-Wl,--export-all-symbols -Wl,--out-implib=[$]@.a'
+         saved_LDFLAGS="$LDFLAGS"
+         LDFLAGS="$LDFLAGS -Wl,--exclude-modules-for-implib=conftest.o"
+         AC_CACHE_CHECK([whether the linker supports --exclude-modules-for-implib],
+           [gcc_cv_ld_exclude_modules_for_implib],
+           [AC_TRY_LINK([], [],
+              [gcc_cv_ld_exclude_modules_for_implib=yes],
+              [gcc_cv_ld_exclude_modules_for_implib=no])])
+         LDFLAGS="$saved_LDFLAGS"
+         if test x"$gcc_cv_ld_exclude_modules_for_implib" = xyes; then
+            # GCC's generated RTL expander functions (gen_*) can exceed the
+            # PE/COFF export ordinal limit of 65535 when --export-all-symbols
+            # is used. They are target-internal helpers, so do not auto-export
+            # them.
+            plugin_implib_exclusions=
+            plugin_implib_i=1
+            while test $plugin_implib_i -le $DEFAULT_INSNEMIT_PARTITIONS; do
+              if test x"$plugin_implib_exclusions" = x; then
+                plugin_implib_exclusions="insn-emit-$plugin_implib_i.o"
+              else
+                plugin_implib_exclusions="$plugin_implib_exclusions:insn-emit-$plugin_implib_i.o"
+              fi
+                plugin_implib_i=`expr $plugin_implib_i + 1`
+            done
+           pluginlibs="$pluginlibs -Wl,--exclude-modules-for-implib=$plugin_implib_exclusions"
+         fi
 	 plugin_check=no
        fi
      ;;
