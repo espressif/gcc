@@ -34413,6 +34413,52 @@ fi
        elif test x"$enable_plugin" = x"yes"; then
          # Use make's target variable to derive import library name.
          pluginlibs='-Wl,--export-all-symbols -Wl,--out-implib=$@.a'
+         saved_LDFLAGS="$LDFLAGS"
+         LDFLAGS="$LDFLAGS -Wl,--exclude-modules-for-implib=conftest.o"
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the linker supports --exclude-modules-for-implib" >&5
+$as_echo_n "checking whether the linker supports --exclude-modules-for-implib... " >&6; }
+if ${gcc_cv_ld_exclude_modules_for_implib+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_link "$LINENO"; then :
+  gcc_cv_ld_exclude_modules_for_implib=yes
+else
+  gcc_cv_ld_exclude_modules_for_implib=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_exclude_modules_for_implib" >&5
+$as_echo "$gcc_cv_ld_exclude_modules_for_implib" >&6; }
+         LDFLAGS="$saved_LDFLAGS"
+         if test x"$gcc_cv_ld_exclude_modules_for_implib" = xyes; then
+            # GCC's generated RTL expander functions (gen_*) can exceed the
+            # PE/COFF export ordinal limit of 65535 when --export-all-symbols
+            # is used. They are target-internal helpers, so do not auto-export
+            # them.
+            plugin_implib_exclusions=
+            plugin_implib_i=1
+            while test $plugin_implib_i -le $DEFAULT_INSNEMIT_PARTITIONS; do
+              if test x"$plugin_implib_exclusions" = x; then
+                plugin_implib_exclusions="insn-emit-$plugin_implib_i.o"
+              else
+                plugin_implib_exclusions="$plugin_implib_exclusions:insn-emit-$plugin_implib_i.o"
+              fi
+                plugin_implib_i=`expr $plugin_implib_i + 1`
+            done
+           pluginlibs="$pluginlibs -Wl,--exclude-modules-for-implib=$plugin_implib_exclusions"
+         fi
 	 plugin_check=no
        fi
      ;;
