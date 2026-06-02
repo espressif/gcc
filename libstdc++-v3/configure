@@ -54350,6 +54350,14 @@ else
 fi
 
 
+  case ${host} in
+    *-esp*)
+      if test "x${with_libstdcxx_zoneinfo}" = xyes; then
+	with_libstdcxx_zoneinfo=no
+      fi
+      ;;
+  esac
+
   if test "x${with_libstdcxx_zoneinfo}" = xyes; then
     # Pick a default when no specific path is set.
     case "$target_os" in

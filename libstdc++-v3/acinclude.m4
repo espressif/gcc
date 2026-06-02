@@ -5681,6 +5681,14 @@ AC_DEFUN([GLIBCXX_ZONEINFO_DIR], [
 		   [the location to use for tzdata]),
     [],[with_libstdcxx_zoneinfo=yes])
 
+  case ${host} in
+    *-esp*)
+      if test "x${with_libstdcxx_zoneinfo}" = xyes; then
+	with_libstdcxx_zoneinfo=no
+      fi
+      ;;
+  esac
+
   if test "x${with_libstdcxx_zoneinfo}" = xyes; then
     # Pick a default when no specific path is set.
     case "$target_os" in
