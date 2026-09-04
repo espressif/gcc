@@ -2507,19 +2507,7 @@ riscv*-*-linux*)
 	tm_file="elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file} riscv/linux.h"
 	case "x${enable_multilib}" in
 	xno) ;;
-	xyes)
-		case ${target} in
-		riscv64-*-linux-musl*)
-			tmake_file="${tmake_file} riscv/t-linux-musl64-multilib"
-			;;
-		riscv32-*-linux-musl*)
-			tmake_file="${tmake_file} riscv/t-linux-musl32-multilib"
-			;;
-		*)
-			tmake_file="${tmake_file} riscv/t-linux-multilib"
-			;;
-		esac
-		;;
+	xyes) tmake_file="${tmake_file} riscv/t-linux-multilib" ;;
 	*) echo "Unknown value for enable_multilib"; exit 1
 	esac
 	tmake_file="${tmake_file} riscv/t-riscv riscv/t-linux"
@@ -4777,7 +4765,7 @@ case "${target}" in
 			exit 1
 			;;
 		esac
-		PYTHON=`which python3 || which python2 || which python`
+		PYTHON=`which python || which python3 || which python2`
 		if test "x${PYTHON}" != x; then
 			with_arch=`${PYTHON} ${srcdir}/config/riscv/arch-canonicalize -misa-spec=${with_isa_spec} ${with_arch}`
 		fi
