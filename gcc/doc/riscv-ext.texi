@@ -723,7 +723,7 @@
 @tab Espressif Loop Instruction Extension
 
 @item @samp{xespv}
-@tab 2.1
+@tab 3.0
 @tab Espressif Vector Instruction Extension
 
 @item @samp{xmipscmov}
