@@ -1,5 +1,5 @@
 /* Compiler driver program that can handle many languages.
-   Copyright (C) 1987-2024 Free Software Foundation, Inc.
+   Copyright (C) 1987-2026 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -719,6 +719,13 @@ proper position among the other output files.  */
 #define CPP_SPEC ""
 #endif
 
+/* libc can define LIBC_CPP_SPEC to provide extra args to the C preprocessor
+   or extra switch-translations. */
+
+#ifndef LIBC_CPP_SPEC
+#define LIBC_CPP_SPEC ""
+#endif
+
 /* Operating systems can define OS_CC1_SPEC to provide extra args to cc1 and
    cc1plus or extra switch-translations.  The OS_CC1_SPEC is appended
    to CC1_SPEC in the initialization of cc1_spec.  */
@@ -1197,7 +1204,7 @@ proper position among the other output files.  */
 
 static const char *asm_debug = ASM_DEBUG_SPEC;
 static const char *asm_debug_option = ASM_DEBUG_OPTION_SPEC;
-static const char *cpp_spec = CPP_SPEC;
+static const char *cpp_spec = CPP_SPEC LIBC_CPP_SPEC;
 static const char *cc1_spec = CC1_SPEC OS_CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
 static const char *link_gcc_c_sequence_spec = LINK_GCC_C_SEQUENCE_SPEC;

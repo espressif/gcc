@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2024 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2026 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -173,6 +173,14 @@ Do not define this macro if it does not need to do anything.
 A C string constant that tells the GCC driver program options to
 pass to CPP@.  It can also specify how to translate options you
 give to GCC into options for GCC to pass to the CPP@.
+
+Do not define this macro if it does not need to do anything.
+@end defmac
+
+@defmac LIBC_CPP_SPEC
+A C string constant which is appended to the value of
+@code{CPP_SPEC}. @code{LIBC_CPP_SPEC} is intended to depend upon the
+C library in use.
 
 Do not define this macro if it does not need to do anything.
 @end defmac

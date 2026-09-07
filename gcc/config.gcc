@@ -2505,6 +2505,9 @@ microblaze*-*-elf)
         ;;
 riscv*-*-linux*)
 	tm_file="elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file} riscv/linux.h"
+	case ${target} in
+	  *-linux-musl*) tm_file="${tm_file} riscv/musl-spec.h"
+	esac
 	case "x${enable_multilib}" in
 	xno) ;;
 	xyes) tmake_file="${tmake_file} riscv/t-linux-multilib" ;;
