@@ -3000,6 +3000,9 @@ static void
 xtensa_psram_cache_fix_nop_reorg ()
 {
   rtx_insn *insn, *subinsn, *next_insn;
+  insns_since_store = 0;
+  store_insn = NULL;
+  last_hiqi_store = NULL;
   for (insn = get_insns (); insn != 0; insn = next_insn)
     {
       next_insn = NEXT_INSN (insn);
@@ -3020,17 +3023,37 @@ xtensa_psram_cache_fix_nop_reorg ()
    nops.
    Slower than nops, but faster than just adding memws everywhere.  */
 
+/* Memory operand of a load or store.  Operand 0 of a SET is the
+   destination, so a load's MEM is the source.  */
+static rtx
+xtensa_psram_mem (rtx_insn *insn, bool store_p)
+{
+  rtx pat = PATTERN (insn);
+  rtx x;
+
+  if (GET_CODE (pat) != SET)
+    return NULL_RTX;
+
+  x = store_p ? SET_DEST (pat) : SET_SRC (pat);
+  if (!store_p)
+    while (GET_CODE (x) == SIGN_EXTEND || GET_CODE (x) == ZERO_EXTEND)
+      x = XEXP (x, 0);
+
+  return MEM_P (x) ? x : NULL_RTX;
+}
+
 static void
 handle_fix_reorg_memw (rtx_insn *insn)
 {
   enum attr_type attr_type = get_attr_type (insn);
-  rtx x = XEXP (PATTERN (insn), 0);
   if (attr_type == TYPE_STORE || attr_type == TYPE_FSTORE)
     {
+      rtx x = xtensa_psram_mem (insn, true);
       /* Store  */
       insns_since_store = 0;
       store_insn = insn;
       if (attr_type == TYPE_STORE
+          && x
           && (GET_MODE (x) == HImode || GET_MODE (x) == QImode))
         {
           /* This is an 8/16-bit store, record it if it's not volatile
@@ -3038,17 +3061,26 @@ handle_fix_reorg_memw (rtx_insn *insn)
           if (!MEM_VOLATILE_P (x))
             last_hiqi_store = insn;
         }
+      else
+        {
+          /* 32-bit store finishes earlier 8/16-bit stores.  */
+          last_hiqi_store = NULL;
+        }
     }
   else if (attr_type == TYPE_LOAD || attr_type == TYPE_FLOAD)
     {
-      /* Load  */
-      if (MEM_P (x) && (!MEM_VOLATILE_P (x)))
+      rtx x = xtensa_psram_mem (insn, false);
+      /* Load.  A barrier here retires the store, so a later jump does
+         not emit another one.  The s8i/s16i barrier below covers a
+         pending byte store; don't emit a second memw for that store.
+         Read-only memory is never stored to.  A volatile load is
+         handled too: %v omits its own memw right after this one, and
+         with -mno-serialize-volatile there is no other barrier.  */
+      if (x && !MEM_READONLY_P (x) && store_insn)
         {
-          if (store_insn)
-            {
-              emit_insn_before (gen_memory_barrier (), insn);
-              store_insn = NULL;
-            }
+          if (store_insn != last_hiqi_store)
+            emit_insn_before (gen_memory_barrier (), insn);
+          store_insn = NULL;
         }
     }
   else if (attr_type == TYPE_JUMP || attr_type == TYPE_CALL)
@@ -3061,7 +3093,8 @@ handle_fix_reorg_memw (rtx_insn *insn)
              be a load after. Need to memw if earlier code had a store.  */
           if (store_insn)
             {
-              emit_insn_before (gen_memory_barrier (), insn);
+              if (store_insn != last_hiqi_store)
+                emit_insn_before (gen_memory_barrier (), insn);
               store_insn = NULL;
             }
         }
@@ -3075,8 +3108,11 @@ handle_fix_reorg_memw (rtx_insn *insn)
     {
       if (last_hiqi_store)
         {
-          /* Need to memory barrier the s8i/s16i instruction.  */
+          /* Need to memory barrier the s8i/s16i instruction.  That memw
+             also retires the same store for the 32-bit hazard.  */
           emit_insn_after (gen_memory_barrier (), last_hiqi_store);
+          if (store_insn == last_hiqi_store)
+            store_insn = NULL;
           last_hiqi_store = NULL;
         }
     }
@@ -3086,6 +3122,9 @@ static void
 xtensa_psram_cache_fix_memw_reorg ()
 {
   rtx_insn *insn, *subinsn, *next_insn;
+  insns_since_store = 0;
+  store_insn = NULL;
+  last_hiqi_store = NULL;
   for (insn = get_insns (); insn != 0; insn = next_insn)
     {
       next_insn = NEXT_INSN (insn);
@@ -3120,7 +3159,9 @@ xtensa_psram_cache_fix_memw_reorg ()
 static void
 handle_fix_dupldst_store (rtx_insn *insn, enum attr_type attr_type)
 {
-  rtx x = XEXP (PATTERN (insn), 0);
+  rtx x = xtensa_psram_mem (insn, true);
+  if (!x)
+    return;
   /* Store  */
   if (attr_type == TYPE_STORE
       && (GET_MODE (x) == HImode || GET_MODE (x) == QImode))
@@ -3133,29 +3174,21 @@ handle_fix_dupldst_store (rtx_insn *insn, enum attr_type attr_type)
     {
       /* 32-bit store.
          Add a load-after-store to fix psram issues *if* var is not volatile */
-      if (MEM_P (x) && (!MEM_VOLATILE_P (x)))
+      if (!MEM_VOLATILE_P (x))
         {
-          rtx y = XEXP (PATTERN (insn), 1);
-          if (REG_P (y) && XINT (y, 0) == 1)
+          rtx y = SET_SRC (PATTERN (insn));
+          if (REG_P (y) && REGNO (y) != STACK_POINTER_REGNUM)
             {
-              /* Store SP in mem? Can't movsi that back.
-                 Insert memory barrier instead.  */
-              emit_insn_after (gen_memory_barrier (), insn);
+              /* Produce s32i(insn), l32i, s32i.  Each insn is emitted
+                 right after INSN, so the second store goes in first.  */
+              emit_insn_after (gen_movsi (copy_rtx (x), y), insn);
+              emit_insn_after (gen_movsi (y, copy_rtx (x)), insn);
             }
           else
             {
-              /* Add the load/store.
-                 Note: the instructions will be added in the OPPOSITE order as
-                 the instructions are added between the s32i and the next
-                 instruction:
-                 1:
-                   s32i(insn), s32i;
-                 2:
-                   s32i(insn), l32i, s32i;  */
-              /* Store again  */
-              emit_insn_after (gen_movsi (x, y), insn);
-              /* Load  */
-              emit_insn_after (gen_movsi (x, y), insn);
+              /* Store SP, or a non-register source.  Can't reload that.
+                 Insert memory barrier instead.  */
+              emit_insn_after (gen_memory_barrier (), insn);
             }
         }
     }
