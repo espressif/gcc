@@ -20,6 +20,26 @@ particular CPU name.  Permissible values for this option are:
 
 @samp{rocket},
 
+@samp{esp-base},
+
+@samp{esp32c2},
+
+@samp{esp32c3},
+
+@samp{esp32c5},
+
+@samp{esp32c61},
+
+@samp{esp32c6},
+
+@samp{esp32h2},
+
+@samp{esp32h4},
+
+@samp{esp32p4},
+
+@samp{esp32s31},
+
 @samp{sifive-3-series},
 
 @samp{sifive-5-series},
