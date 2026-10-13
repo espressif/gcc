@@ -21,3 +21,7 @@
 mxespv-memcpy
 Target Var(riscv_xespv_memcpy) Init(0)
 Expand memory copies with XESPV q-register instructions.
+
+mxespv-memcmp
+Target Var(riscv_xespv_memcmp) Init(0)
+Expand memory compares with XESPV q-register instructions.

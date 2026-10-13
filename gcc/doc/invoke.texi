@@ -1347,7 +1347,7 @@ See RS/6000 and PowerPC Options.
 -mno-inline-atomics  -mno-inline-strlen
 -mno-inline-strcmp  -mno-inline-strncmp
 -mstringop-strategy=@var{strategy}
--mxespv-memcpy
+-mxespv-memcpy  -mxespv-memcmp
 -mtls-dialect=desc  -mtls-dialect=trad
 -mrvv-vector-bits=@var{value}  -mrvv-max-lmul=@var{value}
 -madjust-lmul-cost  -mmax-vectorization  -mno-autovec-segment}
@@ -31287,6 +31287,24 @@ as in interrupt handlers that do not preserve it.
 @option{-mstringop-strategy} values other than @samp{auto} and
 @samp{vector} disable this expansion.  The default is
 @option{-mno-xespv-memcpy}.
+
+@opindex mxespv-memcmp
+@opindex mno-xespv-memcmp
+@item -mxespv-memcmp
+@itemx -mno-xespv-memcmp
+Do or do not expand memory compares with the 128-bit @samp{q} registers
+of the @samp{xespv} extension when optimizing for speed at @option{-O2}
+or above.  The same alignment rules as @option{-mxespv-memcpy} apply:
+only aligned @samp{q} register loads are used, and a misaligned source
+is assembled with @samp{esp.src.q}.  The first differing byte is then
+compared as an unsigned value.  With version 3.0 of @samp{xespv}, the
+code requires the 128-bit vector length (@samp{CFG.vlen} = 0, the reset
+value).  The generated code clobbers @samp{q} registers and
+@samp{SAR_BYTE} that the source does not mention, so it must not be
+used where the @samp{xespv} state is not saved, such as in interrupt
+handlers that do not preserve it.  @option{-mstringop-strategy} values
+other than @samp{auto} and @samp{vector} disable this expansion.  The
+default is @option{-mno-xespv-memcmp}.
 
 @opindex mshorten-memrefs
 @opindex mno-shorten-memrefs

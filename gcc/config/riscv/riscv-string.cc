@@ -791,6 +791,9 @@ riscv_expand_block_compare_scalar (rtx result, rtx src1, rtx src2, rtx nbytes)
 bool
 riscv_expand_block_compare (rtx result, rtx src1, rtx src2, rtx nbytes)
 {
+  if (riscv_expand_block_compare_xespv (result, src1, src2, nbytes))
+    return true;
+
   if (stringop_strategy & STRATEGY_SCALAR)
     return riscv_expand_block_compare_scalar (result, src1, src2, nbytes);
 

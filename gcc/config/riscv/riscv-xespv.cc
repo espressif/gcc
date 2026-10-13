@@ -806,6 +806,225 @@ riscv_xespv_copy_tail_var (riscv_xespv_copy &c, rtx len, unsigned int max)
     }
 }
 
+/* Load the next 16-byte chunk of a compare source.  LAST is true for the
+   final chunk of a misaligned source: it is read from the block that holds
+   LAST_BYTE, which may be the block already in C.PREV, so the following
+   block is not read when it holds no source byte.  */
+
+static rtx
+riscv_xespv_load_cmp (riscv_xespv_copy &c, bool last, rtx last_byte)
+{
+  if (c.salign >= 8)
+    return riscv_xespv_load_chunk (c);
+
+  emit_insn (gen_xespv_movx_w_sar_bytes (c.shift));
+  rtx next = gen_reg_rtx (TImode);
+  if (!last)
+    riscv_xespv_load_block (next, c.src, 16);
+  else
+    {
+      rtx addr = expand_simple_binop (Pmode, AND, last_byte, GEN_INT (-16),
+				      NULL_RTX, 0, OPTAB_WIDEN);
+      addr = copy_to_mode_reg (Pmode, addr);
+      riscv_xespv_load_block (next, addr, 0);
+    }
+  rtx chunk = gen_reg_rtx (TImode);
+  emit_insn (gen_xespv_src_q (chunk, c.prev, next));
+  /* C.PREV must stay the same pseudo: a runtime loop emits this once.  */
+  if (!last)
+    emit_move_insn (c.prev, next);
+  return chunk;
+}
+
+/* Unsigned byte INDEX of q register Q.  */
+
+static rtx
+riscv_xespv_qbyte (rtx q, int index)
+{
+  rtx byte = gen_reg_rtx (SImode);
+  emit_insn (gen_xespv_movi_8_a (byte, q, GEN_INT (index)));
+  return expand_simple_binop (SImode, AND, byte, GEN_INT (255), NULL_RTX, 1,
+			      OPTAB_DIRECT);
+}
+
+/* Compare the 16-byte chunks QA and QB.  Jump to DONE with RESULT set to
+   the unsigned difference of the first bytes that differ.  Fall through
+   when the chunks are equal.  */
+
+static void
+riscv_xespv_emit_qdiff (rtx result, rtx qa, rtx qb, rtx_code_label *done)
+{
+  rtx diff = gen_reg_rtx (TImode);
+  emit_insn (gen_xespv_xorq (diff, qa, qb));
+  for (int word = 0; word < 4; word++)
+    {
+      rtx bits = gen_reg_rtx (SImode);
+      emit_insn (gen_xespv_movi_32_a (bits, diff, GEN_INT (word)));
+      rtx_code_label *next = gen_label_rtx ();
+      emit_cmp_and_jump_insns (bits, const0_rtx, EQ, NULL_RTX, SImode, 1,
+			       next);
+      for (int byte = 0; byte < 4; byte++)
+	{
+	  rtx ba = riscv_xespv_qbyte (qa, word * 4 + byte);
+	  rtx bb = riscv_xespv_qbyte (qb, word * 4 + byte);
+	  rtx_code_label *equal = gen_label_rtx ();
+	  emit_cmp_and_jump_insns (ba, bb, EQ, NULL_RTX, SImode, 1, equal);
+	  emit_insn (gen_subsi3 (result, ba, bb));
+	  emit_jump_insn (gen_jump (done));
+	  emit_barrier ();
+	  emit_label (equal);
+	}
+      emit_label (next);
+    }
+}
+
+/* Compare LEN bytes at P1 and P2 one byte at a time.  LEN is a register.
+   Jump to DONE with RESULT set when a byte differs.  */
+
+static void
+riscv_xespv_cmp_bytes (rtx result, rtx p1, rtx p2, rtx len,
+		       rtx_code_label *done)
+{
+  rtx_code_label *loop = gen_label_rtx ();
+  rtx_code_label *equal = gen_label_rtx ();
+  emit_label (loop);
+  emit_cmp_and_jump_insns (len, const0_rtx, EQ, NULL_RTX, Pmode, 1, equal);
+
+  rtx b1 = gen_reg_rtx (SImode);
+  rtx b2 = gen_reg_rtx (SImode);
+  rtx m1 = gen_rtx_MEM (QImode, p1);
+  rtx m2 = gen_rtx_MEM (QImode, p2);
+  set_mem_align (m1, BITS_PER_UNIT);
+  set_mem_align (m2, BITS_PER_UNIT);
+  emit_insn (gen_zero_extendqisi2 (b1, m1));
+  emit_insn (gen_zero_extendqisi2 (b2, m2));
+  riscv_xespv_update (p1, PLUS, const1_rtx);
+  riscv_xespv_update (p2, PLUS, const1_rtx);
+  riscv_xespv_update (len, PLUS, constm1_rtx);
+  emit_cmp_and_jump_insns (b1, b2, EQ, NULL_RTX, SImode, 1, loop);
+  emit_insn (gen_subsi3 (result, b1, b2));
+  emit_jump_insn (gen_jump (done));
+  emit_barrier ();
+  emit_label (equal);
+}
+
+/* Expand memcmp of NBYTES bytes at SRC1 and SRC2 with XESPV q registers.
+   RESULT receives the signed difference of the first differing bytes, or
+   zero.  Return false if the expansion is not possible or worthwhile.  */
+
+bool
+riscv_expand_block_compare_xespv (rtx result, rtx src1, rtx src2, rtx nbytes)
+{
+  if (!riscv_xespv_memcmp
+      || !TARGET_XESPV_QREGS
+      || !(stringop_strategy & STRATEGY_VECTOR)
+      || optimize < 2
+      || !optimize_insn_for_speed_p ()
+      || MEM_VOLATILE_P (src1)
+      || MEM_VOLATILE_P (src2))
+    return false;
+
+  unsigned int aalign = MIN (MEM_ALIGN (src1), 128) / BITS_PER_UNIT;
+  unsigned int balign = MIN (MEM_ALIGN (src2), 128) / BITS_PER_UNIT;
+  /* Shifting a misaligned source only pays off for longer compares, even
+     more so when scalar misaligned accesses are fast.  */
+  unsigned HOST_WIDE_INT min_length = 16;
+  if (aalign < 8 || balign < 8)
+    min_length = riscv_slow_unaligned_access_p ? 32 : 64;
+  if (CONST_INT_P (nbytes) && UINTVAL (nbytes) < min_length)
+    return false;
+
+  rtx origin1 = copy_addr_to_reg (XEXP (src1, 0));
+  rtx origin2 = copy_addr_to_reg (XEXP (src2, 0));
+  riscv_xespv_copy a, b;
+  a.salign = aalign;
+  b.salign = balign;
+  /* Loads advance these.  ORIGIN1 and ORIGIN2 stay at the first byte.  */
+  a.src = copy_addr_to_reg (origin1);
+  b.src = copy_addr_to_reg (origin2);
+  bool shifted = a.salign < 8 || b.salign < 8;
+
+  rtx len = copy_to_mode_reg (Pmode, nbytes);
+  rtx_code_label *tail = gen_label_rtx ();
+  rtx_code_label *done = gen_label_rtx ();
+  if (!CONST_INT_P (nbytes))
+    emit_cmp_and_jump_insns (len, GEN_INT (min_length), LTU, NULL_RTX, Pmode,
+			     1, tail);
+
+  if (a.salign < 8)
+    riscv_xespv_start_shifted (a);
+  if (b.salign < 8)
+    riscv_xespv_start_shifted (b);
+
+  rtx aligned = expand_simple_binop (Pmode, AND, len, GEN_INT (-16), NULL_RTX,
+				     1, OPTAB_WIDEN);
+  rtx n = expand_simple_binop (Pmode, LSHIFTRT, len, GEN_INT (4), NULL_RTX, 1,
+			       OPTAB_WIDEN);
+  if (shifted)
+    n = expand_simple_binop (Pmode, PLUS, n, constm1_rtx, NULL_RTX, 0,
+			     OPTAB_WIDEN);
+
+  unsigned HOST_WIDE_INT const_chunks
+    = CONST_INT_P (nbytes) ? UINTVAL (nbytes) / 16 : 0;
+  bool unroll = CONST_INT_P (nbytes) && const_chunks <= 4;
+  unsigned int trips
+    = unroll ? (unsigned) const_chunks - (shifted ? 1 : 0) : 0;
+
+  if (unroll)
+    {
+      for (unsigned int i = 0; i < trips; i++)
+	{
+	  rtx qa = riscv_xespv_load_cmp (a, false, NULL_RTX);
+	  rtx qb = riscv_xespv_load_cmp (b, false, NULL_RTX);
+	  riscv_xespv_emit_qdiff (result, qa, qb, done);
+	}
+    }
+  else if (!CONST_INT_P (nbytes) || const_chunks - (shifted ? 1 : 0) > 0)
+    {
+      n = force_reg (Pmode, n);
+      rtx_code_label *loop = gen_label_rtx ();
+      rtx_code_label *skip = gen_label_rtx ();
+      emit_label (loop);
+      emit_cmp_and_jump_insns (n, const0_rtx, EQ, NULL_RTX, Pmode, 1, skip);
+      rtx qa = riscv_xespv_load_cmp (a, false, NULL_RTX);
+      rtx qb = riscv_xespv_load_cmp (b, false, NULL_RTX);
+      riscv_xespv_emit_qdiff (result, qa, qb, done);
+      riscv_xespv_update (n, PLUS, constm1_rtx);
+      emit_jump_insn (gen_jump (loop));
+      emit_barrier ();
+      emit_label (skip);
+    }
+
+  if (shifted)
+    {
+      rtx last = expand_simple_binop (Pmode, PLUS, aligned, constm1_rtx,
+				      NULL_RTX, 0, OPTAB_WIDEN);
+      rtx last1 = expand_simple_binop (Pmode, PLUS, origin1, last, NULL_RTX,
+				       0, OPTAB_WIDEN);
+      rtx last2 = expand_simple_binop (Pmode, PLUS, origin2, last, NULL_RTX,
+				       0, OPTAB_WIDEN);
+      rtx qa = riscv_xespv_load_cmp (a, a.salign < 8, force_reg (Pmode, last1));
+      rtx qb = riscv_xespv_load_cmp (b, b.salign < 8, force_reg (Pmode, last2));
+      riscv_xespv_emit_qdiff (result, qa, qb, done);
+    }
+
+  rtx pos1 = expand_simple_binop (Pmode, PLUS, origin1, aligned, NULL_RTX, 0,
+				  OPTAB_WIDEN);
+  rtx pos2 = expand_simple_binop (Pmode, PLUS, origin2, aligned, NULL_RTX, 0,
+				  OPTAB_WIDEN);
+  if (!CONST_INT_P (nbytes) || (UINTVAL (nbytes) % 16) != 0)
+    {
+      emit_move_insn (origin1, force_reg (Pmode, pos1));
+      emit_move_insn (origin2, force_reg (Pmode, pos2));
+      riscv_xespv_update (len, AND, GEN_INT (15));
+      emit_label (tail);
+      riscv_xespv_cmp_bytes (result, origin1, origin2, len, done);
+    }
+  emit_move_insn (result, CONST0_RTX (GET_MODE (result)));
+  emit_label (done);
+  return true;
+}
+
 /* Copy the bytes before the first 16-byte boundary of C.DST, which may be
    all of them if the copy is short.  Return the number of bytes copied.  */
 

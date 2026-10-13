@@ -3,3 +3,6 @@
 mxespv-memcpy
 UrlSuffix(gcc/RISC-V-Options.html#index-mxespv-memcpy)
 
+mxespv-memcmp
+UrlSuffix(gcc/RISC-V-Options.html#index-mxespv-memcmp)
+

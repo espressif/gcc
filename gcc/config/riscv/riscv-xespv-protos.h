@@ -31,6 +31,7 @@ extern void riscv_split_movti_xespv (rtx, rtx);
 extern const char *riscv_output_movti_xespv (rtx *);
 extern bool riscv_xespv_memcpy_p (bool);
 extern bool riscv_expand_block_move_xespv (rtx, rtx, rtx);
+extern bool riscv_expand_block_compare_xespv (rtx, rtx, rtx, rtx);
 extern bool riscv_xespv_builtin_code_p (unsigned int);
 extern tree riscv_xespv_builtin_decl (unsigned int);
 extern void riscv_xespv_init_builtins (void);
