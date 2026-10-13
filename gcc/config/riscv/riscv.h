@@ -318,9 +318,10 @@ ARCH_UNSET_CLEANUP_SPECS \
    - 1 vl register
    - 1 vtype register
    - 28 unused registers for future expansion
-   - 32 vector registers  */
+   - 32 vector registers
+   - 8 XESPV q registers (q0-q7)  */
 
-#define FIRST_PSEUDO_REGISTER 128
+#define FIRST_PSEUDO_REGISTER 136
 
 /* x0, ra, sp, gp, and tp are fixed.  */
 
@@ -336,7 +337,9 @@ ARCH_UNSET_CLEANUP_SPECS \
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   /* Vector registers.  */						\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0			\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
+  /* XESPV q registers.  */						\
+  0, 0, 0, 0, 0, 0, 0, 0						\
 }
 
 /* a0-a7, t0-t6, fa0-fa7, and ft0-ft11 are volatile across calls.
@@ -354,7 +357,9 @@ ARCH_UNSET_CLEANUP_SPECS \
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   /* Vector registers.  */						\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1			\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
+  /* XESPV q registers.  */						\
+  1, 1, 1, 1, 1, 1, 1, 1						\
 }
 
 /* Select a register mode required for caller save of hard regno REGNO.
@@ -377,6 +382,37 @@ ARCH_UNSET_CLEANUP_SPECS \
 #define V_REG_FIRST 96
 #define V_REG_LAST  127
 #define V_REG_NUM   (V_REG_LAST - V_REG_FIRST + 1)
+
+/* Espressif XESPV q registers.  They are numbered after all upstream
+   registers, so upstream can keep filling the unused range below
+   V_REG_FIRST.  If upstream adds registers after V_REG_LAST, move the
+   q registers after them.  */
+#define Q_REG_FIRST 128
+#define Q_REG_LAST  135
+#define Q_REG_NUM   (Q_REG_LAST - Q_REG_FIRST + 1)
+#define Q_REG_P(REGNO)  \
+  ((unsigned int) ((int) (REGNO) - Q_REG_FIRST) < Q_REG_NUM)
+
+/* XESPV q registers hold one TImode value each.  They are only usable on
+   RV32, where 128-bit vector types get TImode, and only if the stack is
+   16-byte aligned, since q-register loads and stores need 16-byte
+   aligned spill slots.  */
+#define TARGET_XESPV_QREGS \
+  (TARGET_XESPV && !TARGET_64BIT && riscv_stack_boundary >= 128)
+
+/* Espressif RV-PIE instructions encode GPR operands in 4 bits with bit 3
+   implied to be set, so only x8-x15/x24-x31 are usable.  The scalar
+   esp.addx2, esp.addx4, esp.subx2, esp.subx4 and esp.sat are encoded in
+   the OP major opcode and accept any GPR.  */
+#define ESP_GR_REG_P(REGNO)  \
+  (GP_REG_P (REGNO) && ((REGNO) - GP_REG_FIRST) & 8)
+
+/* There is no DWARF numbering for the XESPV q registers.  */
+#define DEBUGGER_REGNO(REGNO) \
+  (Q_REG_P (REGNO) ? IGNORED_DWARF_REGNUM : (REGNO))
+
+/* XESPV q-register loads and stores need their base in ESP_GR_REGS.  */
+#define INSN_BASE_REG_CLASS(INSN) riscv_insn_base_reg_class (INSN)
 
 /* The DWARF 2 CFA column which tracks the return address from a
    signal handler context.  This means that to maintain backwards
@@ -519,14 +555,17 @@ enum reg_class
   NO_REGS,			/* no registers in set */
   SIBCALL_REGS,			/* registers used by indirect sibcalls */
   RVC_GR_REGS,			/* RVC general registers */
+  ESP_GR_REGS,			/* Espressif general registers */
   JALR_REGS,			/* registers used by indirect calls */
   GR_REGS,			/* integer registers */
   RVC_FP_REGS,			/* RVC floating-point registers */
+  ESP_FP_REGS,			/* Espressif floating-point registers */
   FP_REGS,			/* floating-point registers */
   FRAME_REGS,			/* arg pointer and frame pointer */
   VM_REGS,			/* v0.t registers */
   VD_REGS,			/* vector registers except v0.t */
   V_REGS,			/* vector registers */
+  Q_REGS,			/* XESPV q registers */
   ALL_REGS,			/* all registers */
   LIM_REG_CLASSES		/* max value + 1 */
 };
@@ -544,14 +583,17 @@ enum reg_class
   "NO_REGS",								\
   "SIBCALL_REGS",							\
   "RVC_GR_REGS",							\
+  "ESP_GR_REGS",							\
   "JALR_REGS",								\
   "GR_REGS",								\
   "RVC_FP_REGS",							\
+  "ESP_FP_REGS",							\
   "FP_REGS",								\
   "FRAME_REGS",								\
   "VM_REGS",								\
   "VD_REGS",								\
   "V_REGS",								\
+  "Q_REGS",								\
   "ALL_REGS"								\
 }
 
@@ -571,15 +613,18 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
   { 0xf003fc80, 0x00000000, 0x00000000, 0x00000000 },	/* SIBCALL_REGS */	\
   { 0x0000ff00, 0x00000000, 0x00000000, 0x00000000 },	/* RVC_GR_REGS */	\
+  { 0xff00ff00, 0x00000000, 0x00000000, 0x00000000 },	/* ESP_GR_REGS */	\
   { 0xffffffc0, 0x00000000, 0x00000000, 0x00000000 },	/* JALR_REGS */		\
   { 0xffffffff, 0x00000000, 0x00000000, 0x00000000 },	/* GR_REGS */		\
   { 0x00000000, 0x0000ff00, 0x00000000, 0x00000000 },	/* RVC_FP_REGS */	\
+  { 0x00000000, 0xff00ff00, 0x00000000, 0x00000000 },	/* ESP_FP_REGS */	\
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000 },	/* FP_REGS */		\
   { 0x00000000, 0x00000000, 0x00000003, 0x00000000 },	/* FRAME_REGS */	\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000001 },	/* V0_REGS */		\
   { 0x00000000, 0x00000000, 0x00000000, 0xfffffffe },	/* VNoV0_REGS */	\
   { 0x00000000, 0x00000000, 0x00000000, 0xffffffff },	/* V_REGS */		\
-  { 0xffffffff, 0xffffffff, 0x00000003, 0xffffffff }	/* ALL_REGS */		\
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x000000ff },	/* Q_REGS */	\
+  { 0xffffffff, 0xffffffff, 0x00000003, 0xffffffff, 0x000000ff }	/* ALL_REGS */	\
 }
 
 /* A C expression whose value is a register class containing hard
@@ -625,6 +670,8 @@ enum reg_class
   124, 125, 126, 127,							\
   /* The vector mask register.  */					\
   96,									\
+  /* XESPV q registers.  */						\
+  128, 129, 130, 131, 132, 133, 134, 135,				\
   /* None of the remaining classes have defined call-saved		\
      registers.  */							\
   64, 65, 66, 67							\
@@ -1009,7 +1056,8 @@ extern enum riscv_cc get_riscv_cc (const rtx use);
   "v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",	\
   "v8",  "v9",  "v10", "v11", "v12", "v13", "v14", "v15",	\
   "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",	\
-  "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",}
+  "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",	\
+  "q0",  "q1",  "q2",  "q3",  "q4",  "q5",  "q6",  "q7",}
 
 #define ADDITIONAL_REGISTER_NAMES					\
 {									\

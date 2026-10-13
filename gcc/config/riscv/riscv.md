@@ -4997,6 +4997,7 @@
 (include "thead.md")
 (include "corev.md")
 (include "andes.md")
+(include "xespv.md")
 ;; Pipeline models
 (include "generic.md")
 (include "xiangshan.md")

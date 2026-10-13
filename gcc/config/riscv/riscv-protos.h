@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_RISCV_PROTOS_H
 
 #include "memmodel.h"
+#include "riscv-xespv-protos.h"
 
 /* Symbol types we understand.  The order of this list must match that of
    the unspec enum in riscv.md, subsequent to UNSPEC_ADDRESS_FIRST.  */

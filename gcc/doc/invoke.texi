@@ -1347,6 +1347,7 @@ See RS/6000 and PowerPC Options.
 -mno-inline-atomics  -mno-inline-strlen
 -mno-inline-strcmp  -mno-inline-strncmp
 -mstringop-strategy=@var{strategy}
+-mxespv-memcpy
 -mtls-dialect=desc  -mtls-dialect=trad
 -mrvv-vector-bits=@var{value}  -mrvv-max-lmul=@var{value}
 -madjust-lmul-cost  -mmax-vectorization  -mno-autovec-segment}
@@ -31268,6 +31269,24 @@ The default is to inline @code{strncmp} calls.
 Specify a particular strategy for inlining string and memory operations.
 @var{strategy} may be one of @samp{auto}, @samp{libcall}, @samp{scalar},
 or @samp{vector}.
+
+@opindex mxespv-memcpy
+@opindex mno-xespv-memcpy
+@item -mxespv-memcpy
+@itemx -mno-xespv-memcpy
+Do or do not expand memory copies with the 128-bit @samp{q} registers
+of the @samp{xespv} extension when optimizing for speed at @option{-O2}
+or above.  Data from misaligned sources is combined from aligned loads,
+and destinations not known to be 8-byte aligned are aligned at run time,
+so only aligned @samp{q} register loads and stores are used.  With
+version 3.0 of @samp{xespv}, the code requires the 128-bit vector length
+(@samp{CFG.vlen} = 0, the reset value).  The generated code clobbers
+@samp{q} registers and @samp{SAR_BYTE} that the source does not mention,
+so it must not be used where the @samp{xespv} state is not saved, such
+as in interrupt handlers that do not preserve it.
+@option{-mstringop-strategy} values other than @samp{auto} and
+@samp{vector} disable this expansion.  The default is
+@option{-mno-xespv-memcpy}.
 
 @opindex mshorten-memrefs
 @opindex mno-shorten-memrefs

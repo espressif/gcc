@@ -980,6 +980,9 @@ riscv_expand_block_move_scalar (rtx dest, rtx src, rtx length)
 bool
 riscv_expand_block_move (rtx dest, rtx src, rtx length)
 {
+  if (riscv_expand_block_move_xespv (dest, src, length))
+    return true;
+
   if (TARGET_VECTOR
       && stringop_strategy & STRATEGY_VECTOR)
     {

@@ -393,6 +393,8 @@ const enum reg_class riscv_regno_to_class[FIRST_PSEUDO_REGISTER] = {
   VD_REGS,	VD_REGS,	VD_REGS,	VD_REGS,
   VD_REGS,	VD_REGS,	VD_REGS,	VD_REGS,
   VD_REGS,	VD_REGS,	VD_REGS,	VD_REGS,
+  Q_REGS,	Q_REGS,		Q_REGS,		Q_REGS,
+  Q_REGS,	Q_REGS,		Q_REGS,		Q_REGS,
 };
 
 /* RVV costs for VLS vector operations.   */
@@ -10962,6 +10964,14 @@ static bool
 riscv_secondary_memory_needed (machine_mode mode, reg_class_t class1,
 			       reg_class_t class2)
 {
+  /* XESPV q registers can only be loaded from and stored to memory.  */
+  if (riscv_xespv_q_class_p (class1) != riscv_xespv_q_class_p (class2))
+    return true;
+  if (class1 == ESP_FP_REGS)
+    class1 = FP_REGS;
+  if (class2 == ESP_FP_REGS)
+    class2 = FP_REGS;
+
   bool class1_is_fpr = class1 == FP_REGS || class1 == RVC_FP_REGS;
   bool class2_is_fpr = class2 == FP_REGS || class2 == RVC_FP_REGS;
   return (!riscv_vector_mode_p (mode)
@@ -10977,6 +10987,11 @@ int
 riscv_register_move_cost (machine_mode mode,
 			  reg_class_t from, reg_class_t to)
 {
+  bool from_is_q = riscv_xespv_q_class_p (from);
+  bool to_is_q = riscv_xespv_q_class_p (to);
+  if (from_is_q || to_is_q)
+    return from_is_q == to_is_q ? 2 : 2 * tune_param->memory_cost + 4;
+
   bool from_is_fpr = reg_class_subset_p (from, FP_REGS);
   bool from_is_gpr = reg_class_subset_p (from, GR_REGS);
   bool to_is_fpr = reg_class_subset_p (to, FP_REGS);
@@ -11008,6 +11023,9 @@ riscv_register_move_cost (machine_mode mode,
 static unsigned int
 riscv_hard_regno_nregs (unsigned int regno, machine_mode mode)
 {
+  if (Q_REG_P (regno))
+    return 1;
+
   if (riscv_vla_mode_p (mode))
     {
       /* Handle fractional LMUL, it only occupy part of vector register but
@@ -11066,6 +11084,9 @@ riscv_hard_regno_nregs (unsigned int regno, machine_mode mode)
 static bool
 riscv_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 {
+  if (Q_REG_P (regno))
+    return TARGET_XESPV_QREGS && mode == TImode;
+
   unsigned int nregs = riscv_hard_regno_nregs (regno, mode);
 
   if (GP_REG_P (regno))
@@ -11156,6 +11177,9 @@ riscv_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 static unsigned char
 riscv_class_max_nregs (reg_class_t rclass, machine_mode mode)
 {
+  if (riscv_xespv_q_class_p (rclass))
+    return riscv_hard_regno_nregs (Q_REG_FIRST, mode);
+
   if (reg_class_subset_p (rclass, FP_REGS))
     return riscv_hard_regno_nregs (FP_REG_FIRST, mode);
 
@@ -12876,6 +12900,13 @@ riscv_option_print (FILE *file, int indent, struct cl_target_option *ptr)
 static void
 riscv_conditional_register_usage (void)
 {
+  if (!TARGET_XESPV_QREGS)
+    {
+      for (int regno = Q_REG_FIRST; regno <= Q_REG_LAST; regno++)
+	fixed_regs[regno] = call_used_regs[regno] = 1;
+      accessible_reg_set &= ~reg_class_contents[Q_REGS];
+    }
+
   /* We have only x0~x15 on RV32E/RV64E.  */
   if (TARGET_RVE)
     {
@@ -13334,6 +13365,10 @@ static bool
 riscv_can_change_mode_class (machine_mode from, machine_mode to,
 			     reg_class_t rclass)
 {
+  /* XESPV q registers only hold TImode.  */
+  if (reg_classes_intersect_p (Q_REGS, rclass))
+    return false;
+
   /* We have RVV VLS modes and VLA modes sharing same REG_CLASS.
      In 'cprop_hardreg' stage, we will try to do hard reg copy propagation
      between wider mode (FROM) and narrow mode (TO).
@@ -15881,6 +15916,10 @@ riscv_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 				      unsigned alignment,
 				      enum by_pieces_operation op, bool speed_p)
 {
+  /* Leave copies of at least one q register to cpymem<mode>.  */
+  if (op == MOVE_BY_PIECES && size >= 16 && riscv_xespv_memcpy_p (speed_p))
+    return false;
+
   /* For set/clear with size > UNITS_PER_WORD, by pieces uses vector broadcasts
      with UNITS_PER_WORD size pieces.  Use setmem<mode> instead which can use
      bigger chunks.  */

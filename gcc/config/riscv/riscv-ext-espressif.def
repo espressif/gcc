@@ -54,7 +54,7 @@ DEFINE_RISCV_EXT(
   /* DESC */ "",
   /* URL */ ,
   /* DEP_EXTS */ ({}),
-  /* SUPPORTED_VERSIONS */ ({{2, 1}}),
+  /* SUPPORTED_VERSIONS */ ({{3, 0}, {2, 2}, {2, 1}}),
   /* FLAG_GROUP */ xespressif,
   /* BITMASK_GROUP_ID */ BITMASK_NOT_YET_ALLOCATED,
   /* BITMASK_BIT_POSITION*/ BITMASK_NOT_YET_ALLOCATED,

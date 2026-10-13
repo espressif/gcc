@@ -147,6 +147,18 @@ riscv-shorten-memrefs.o: $(srcdir)/config/riscv/riscv-shorten-memrefs.cc \
 	$(COMPILE) $<
 	$(POSTCOMPILE)
 
+riscv-esp-asm.o: $(srcdir)/config/riscv/riscv-esp-asm.cc \
+  $(srcdir)/config/riscv/riscv-esp-asm.def \
+  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TARGET_H)
+	$(COMPILE) $<
+	$(POSTCOMPILE)
+
+riscv-xespv.o: $(srcdir)/config/riscv/riscv-xespv.cc \
+  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TM_P_H) $(RTL_H) \
+  $(TARGET_H) $(EXPR_H) $(OPTABS_H) $(RECOG_H) insn-codes.h
+	$(COMPILE) $<
+	$(POSTCOMPILE)
+
 riscv-selftests.o: $(srcdir)/config/riscv/riscv-selftests.cc \
   $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) output.h \
   $(C_COMMON_H) $(TARGET_H) $(OPTABS_H) $(EXPR_H) $(INSN_ATTR_H) $(EMIT_RTL_H)

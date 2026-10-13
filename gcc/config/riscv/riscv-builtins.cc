@@ -322,6 +322,8 @@ riscv_init_builtins (void)
 	  riscv_builtin_decl_index[d->icode] = i;
 	}
     }
+
+  riscv_xespv_init_builtins ();
 }
 
 /* Implement TARGET_BUILTIN_DECL.  */
@@ -333,6 +335,8 @@ riscv_builtin_decl (unsigned int code, bool initialize_p ATTRIBUTE_UNUSED)
   switch (code & RISCV_BUILTIN_CLASS)
     {
     case RISCV_BUILTIN_GENERAL:
+      if (riscv_xespv_builtin_code_p (subcode))
+	return riscv_xespv_builtin_decl (subcode);
       if (subcode >= ARRAY_SIZE (riscv_builtins))
 	return error_mark_node;
       return riscv_builtin_decls[subcode];
@@ -441,6 +445,9 @@ riscv_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       case RISCV_BUILTIN_VECTOR:
 	return riscv_vector::expand_builtin (subcode, exp, target);
       case RISCV_BUILTIN_GENERAL: {
+	if (riscv_xespv_builtin_code_p (subcode))
+	  return riscv_xespv_expand_builtin (subcode, exp, target);
+
 	const struct riscv_builtin_description *d = &riscv_builtins[subcode];
 
 	switch (d->builtin_type)
