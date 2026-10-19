@@ -54,9 +54,10 @@ struct object
       unsigned long from_array : 1;
       unsigned long mixed_encoding : 1;
       unsigned long encoding : 8;
+      unsigned long eh_frame_hdr : 1;
       /* ??? Wish there was an easy way to detect a 64-bit host here;
 	 we've got 32 bits left to play with...  */
-      unsigned long count : 21;
+      unsigned long count : 20;
     } b;
     size_t i;
   } s;
