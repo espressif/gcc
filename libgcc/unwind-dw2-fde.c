@@ -871,6 +871,68 @@ add_fdes (struct object *ob, struct fde_accumulator *accu, const fde *this_fde)
 }
 #endif
 
+/* An entry of the search table in .eh_frame_hdr: the initial location
+   of an FDE and the FDE, both relative to the start of .eh_frame_hdr.  */
+struct eh_frame_hdr_entry
+{
+  signed initial_loc __attribute__ ((mode (SI)));
+  signed fde __attribute__ ((mode (SI)));
+};
+
+/* The search table ld writes with --eh-frame-hdr, marked by this hidden
+   symbol so that systems without access to PHDRs can find it.  Only a
+   static unwinder registering frames itself looks for it: a hosted one
+   finds the table through PT_GNU_EH_FRAME, and in a shared library the
+   symbol would name that library's table, not the program's.  */
+#if defined (OBJECT_FORMAT_ELF) && !defined (_Unwind_Find_FDE) \
+    && !defined (__PIC__)
+#define USE_GNU_EH_FRAME_HDR_SYMBOL 1
+extern const unsigned char __GNU_EH_FRAME_HDR[]
+  __attribute__ ((weak, visibility ("hidden")));
+#endif
+
+/* Return the start of .eh_frame_hdr if its search table describes the
+   .eh_frame registered as OB, and set *COUNT to the table's number of
+   entries.  The table follows the 12-byte header.  Return NULL otherwise.  */
+
+static const unsigned char *
+object_eh_frame_hdr (const struct object *ob, size_t *count)
+{
+#ifdef USE_GNU_EH_FRAME_HDR_SYMBOL
+  const unsigned char *hdr = __GNU_EH_FRAME_HDR;
+  const unsigned char *p;
+  unsigned value __attribute__ ((mode (SI)));
+  _Unwind_Ptr eh_frame;
+
+  if (!hdr || ob->s.b.from_array)
+    return NULL;
+
+  /* Only the layout BFD ld generates, with a table to search; it writes
+     DW_EH_PE_omit encodings when it couldn't build one.  */
+  if (hdr[0] != 1
+      || hdr[1] != (DW_EH_PE_pcrel | DW_EH_PE_sdata4)
+      || hdr[2] != DW_EH_PE_udata4
+      || hdr[3] != (DW_EH_PE_datarel | DW_EH_PE_sdata4))
+    return NULL;
+
+  p = read_encoded_value_with_base (hdr[1], 0, hdr + 4, &eh_frame);
+  if ((const fde *) eh_frame != ob->u.single)
+    return NULL;
+
+  memcpy (&value, p, sizeof (value));
+  p += sizeof (value);
+  if (value == 0 || ((_Unwind_Ptr) p & 3) != 0)
+    return NULL;
+
+  *count = value;
+  return hdr;
+#else
+  (void) ob;
+  (void) count;
+  return NULL;
+#endif
+}
+
 /* Set up a sorted array of pointers to FDEs for a loaded object.  We
    count up the entries before allocating the array because it's likely to
    be faster.  We can be called multiple times, should we have failed to
@@ -916,10 +978,24 @@ init_object (struct object* ob)
 	 limited, but should suffice for virtually all cases.  If the
 	 counted value doesn't fit, re-write a zero.  The worst that
 	 happens is that we re-count next time -- admittedly non-trivial
-	 in that this implies some 2M fdes, but at least we function.  */
+	 in that this implies some 1M fdes, but at least we function.  */
       ob->s.b.count = count;
       if (ob->s.b.count != count)
 	ob->s.b.count = 0;
+    }
+
+  /* Nothing to sort when the linker's search table covers the object.  */
+  if (object_eh_frame_hdr (ob, &count))
+    {
+#ifdef ATOMIC_FDE_FAST_PATH
+      struct object tmp;
+      tmp.s.b = ob->s.b;
+      tmp.s.b.eh_frame_hdr = 1;
+      __atomic_store (&(ob->s.b), &(tmp.s.b), __ATOMIC_RELEASE);
+#else
+      ob->s.b.eh_frame_hdr = 1;
+#endif
+      return;
     }
 
 #if DWARF2_UNWIND_ENABLE_FDE_SORT
@@ -1146,6 +1222,49 @@ binary_search_mixed_encoding_fdes (struct object *ob, void *pc)
 }
 #endif
 
+/* Binary search the .eh_frame_hdr table of OB for PC.  The table holds
+   every FDE of the section, sorted by initial location, so a PC that falls
+   in no entry's range is in no FDE of OB.  */
+
+static const fde *
+search_eh_frame_hdr (struct object *ob, void *pc)
+{
+  const unsigned char *hdr;
+  const struct eh_frame_hdr_entry *table;
+  _Unwind_Ptr data_base, range;
+  size_t count, lo, hi;
+  const fde *f;
+  int encoding;
+
+  hdr = object_eh_frame_hdr (ob, &count);
+  if (!hdr)
+    return NULL;
+
+  table = (const struct eh_frame_hdr_entry *) (hdr + 12);
+  data_base = (_Unwind_Ptr) hdr;
+  lo = 0;
+  hi = count;
+  while (lo < hi)
+    {
+      size_t mid = (lo + hi) / 2;
+      if ((_Unwind_Ptr) pc < table[mid].initial_loc + data_base)
+	hi = mid;
+      else
+	lo = mid + 1;
+    }
+  if (lo == 0)
+    return NULL;
+
+  f = (const fde *) (table[lo - 1].fde + data_base);
+  encoding = ob->s.b.mixed_encoding ? get_fde_encoding (f) : ob->s.b.encoding;
+  read_encoded_value_with_base (encoding & 0x0f, 0,
+				&f->pc_begin[size_of_encoded_value (encoding)],
+				&range);
+  if ((_Unwind_Ptr) pc - (table[lo - 1].initial_loc + data_base) < range)
+    return f;
+  return NULL;
+}
+
 static const fde *
 search_object (struct object* ob, void *pc)
 {
@@ -1155,7 +1274,9 @@ search_object (struct object* ob, void *pc)
   /* If the data hasn't been sorted, try to do this now.  We may have
      more memory available than last time we tried.  */
 #if DWARF2_UNWIND_ENABLE_FDE_SORT
-  if (! ob->s.b.sorted)
+  if (! ob->s.b.sorted && ! ob->s.b.eh_frame_hdr)
+#else
+  if (! ob->s.b.eh_frame_hdr)
 #endif
     {
       init_object (ob);
@@ -1167,6 +1288,9 @@ search_object (struct object* ob, void *pc)
 	return NULL;
     }
 #endif
+
+  if (ob->s.b.eh_frame_hdr)
+    return search_eh_frame_hdr (ob, pc);
 
 #if DWARF2_UNWIND_ENABLE_FDE_SORT
   if (ob->s.b.sorted)
