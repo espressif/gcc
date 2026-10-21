@@ -17194,7 +17194,7 @@ See also @option{-ffile-prefix-map} and @option{-fcanon-prefix-map}.
 
 Alter the update method for an application instrumented for profile
 feedback based optimization.  The @var{method} argument should be one of
-@samp{single}, @samp{atomic} or @samp{prefer-atomic}.
+@samp{single}, @samp{atomic}, @samp{prefer-atomic} or @samp{function-call}.
 The first one is useful for single-threaded applications,
 while the second one prevents profile corruption by emitting thread-safe code.
 
@@ -17205,6 +17205,17 @@ Using @samp{prefer-atomic} would be transformed either to @samp{atomic},
 when supported by a target, or to @samp{single} otherwise.  The GCC driver
 automatically selects @samp{prefer-atomic} when @option{-pthread}
 is present in the command line, otherwise the default method is @samp{single}.
+
+@samp{function-call} updates each counter with a call to
+@code{__gcov_increment_fn} instead of an inline increment.  The 64-bit
+add then lives once in @file{libgcov}, which keeps the text section
+smaller on targets where an inline 64-bit update is several instructions.
+Each site still passes the address of its counter.  @file{libgcov}
+provides a weak @code{__gcov_increment_fn}.  A strong definition of
+@code{gcov_type __gcov_increment_fn (gcov_type *)} overrides it.
+The compiler treats that call as @code{leaf} and @code{nothrow}, so the
+override must not throw and must not call back into the instrumented
+translation unit.
 
 If @samp{atomic} is selected, then the profile information is updated using
 atomic operations on a best-effort basis.  Ideally, the profile information is

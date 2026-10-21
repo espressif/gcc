@@ -233,5 +233,19 @@ __gcov_ior_profiler_atomic (gcov_type *counters, gcov_type value)
 }
 #endif
 
+#ifdef L_gcov_increment_fn
+/* Increment the counter at COUNTER by one and return the new value.
+   Used by -fprofile-update=function-call.  Weak so a strong user
+   definition overrides this copy.  That override must not throw and
+   must not call back into the instrumented translation unit.  */
+
+__attribute__ ((weak))
+gcov_type
+__gcov_increment_fn (gcov_type *counter)
+{
+  return ++*counter;
+}
+#endif
+
 
 #endif /* inhibit_libc */

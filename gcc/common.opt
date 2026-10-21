@@ -2657,7 +2657,7 @@ Enable correction of flow inconsistent profile data input.
 
 fprofile-update=
 Common Joined RejectNegative Enum(profile_update) Var(flag_profile_update) Init(PROFILE_UPDATE_SINGLE)
--fprofile-update=[single|atomic|prefer-atomic]	Set the profile update method.
+-fprofile-update=[single|atomic|prefer-atomic|function-call]	Set the profile update method.
 
 fprofile-filter-files=
 Common Joined RejectNegative Var(flag_profile_filter_files)
@@ -2694,6 +2694,9 @@ Enum(profile_update) String(atomic) Value(PROFILE_UPDATE_ATOMIC)
 
 EnumValue
 Enum(profile_update) String(prefer-atomic) Value(PROFILE_UPDATE_PREFER_ATOMIC)
+
+EnumValue
+Enum(profile_update) String(function-call) Value(PROFILE_UPDATE_FUNCTION_CALL)
 
 fprofile-prefix-path=
 Common Joined RejectNegative Var(profile_prefix_path)

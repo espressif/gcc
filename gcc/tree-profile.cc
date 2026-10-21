@@ -67,6 +67,7 @@ static GTY(()) tree tree_topn_values_profiler_fn;
 static GTY(()) tree tree_indirect_call_profiler_fn;
 static GTY(()) tree tree_average_profiler_fn;
 static GTY(()) tree tree_ior_profiler_fn;
+static GTY(()) tree tree_gcov_inc_fn;
 static GTY(()) tree tree_time_profiler_counter;
 
 
@@ -99,12 +100,16 @@ static GTY(()) tree ic_tuple_callee_field;
 
    If the target does not support atomic operations in hardware, however,  it
    supports libatomic, then all updates are carried out by libatomic calls
-   (COUNTER_UPDATE_ATOMIC_BUILTIN).  */
+   (COUNTER_UPDATE_ATOMIC_BUILTIN).
+
+   -fprofile-update=function-call emits a call to __gcov_increment_fn instead
+   of an inline increment (COUNTER_UPDATE_FUNCTION_CALL).  */
 enum counter_update_method {
   COUNTER_UPDATE_SINGLE_THREAD,
   COUNTER_UPDATE_ATOMIC_BUILTIN,
   COUNTER_UPDATE_ATOMIC_SPLIT,
-  COUNTER_UPDATE_ATOMIC_PARTIAL
+  COUNTER_UPDATE_ATOMIC_PARTIAL,
+  COUNTER_UPDATE_FUNCTION_CALL
 };
 
 static counter_update_method counter_update = COUNTER_UPDATE_SINGLE_THREAD;
@@ -1350,6 +1355,16 @@ gimple_init_gcov_profiler (void)
 	= tree_cons (get_identifier ("leaf"), NULL,
 		     DECL_ATTRIBUTES (tree_ior_profiler_fn));
 
+      /* gcov_type (*) (gcov_type *)  */
+      tree inc_fn_type
+	= build_function_type_list (gcov_type_node, gcov_type_ptr, NULL_TREE);
+      tree_gcov_inc_fn = build_fn_decl ("__gcov_increment_fn", inc_fn_type);
+      /* User override must not throw or call back into this unit.  */
+      TREE_NOTHROW (tree_gcov_inc_fn) = 1;
+      DECL_ATTRIBUTES (tree_gcov_inc_fn)
+	= tree_cons (get_identifier ("leaf"), NULL,
+		     DECL_ATTRIBUTES (tree_gcov_inc_fn));
+
       /* LTO streamer needs assembler names.  Because we create these decls
 	 late, we need to initialize them by hand.  */
       DECL_ASSEMBLER_NAME (tree_interval_profiler_fn);
@@ -1358,6 +1373,7 @@ gimple_init_gcov_profiler (void)
       DECL_ASSEMBLER_NAME (tree_indirect_call_profiler_fn);
       DECL_ASSEMBLER_NAME (tree_average_profiler_fn);
       DECL_ASSEMBLER_NAME (tree_ior_profiler_fn);
+      DECL_ASSEMBLER_NAME (tree_gcov_inc_fn);
     }
 }
 
@@ -1398,7 +1414,13 @@ gen_counter_update (gimple_stmt_iterator *gsi, tree counter, tree result,
   tree one = build_int_cst (type, 1);
   tree relaxed = build_int_cst (integer_type_node, MEMMODEL_RELAXED);
 
-  if (counter_update == COUNTER_UPDATE_ATOMIC_BUILTIN
+  if (counter_update == COUNTER_UPDATE_FUNCTION_CALL)
+    {
+      /* __gcov_increment_fn (&counter);  */
+      gcall *call = gimple_build_call (tree_gcov_inc_fn, 1, addr);
+      gen_assign_counter_update (gsi, call, tree_gcov_inc_fn, result, name);
+    }
+  else if (counter_update == COUNTER_UPDATE_ATOMIC_BUILTIN
       || (result && counter_update == COUNTER_UPDATE_ATOMIC_SPLIT))
     {
       /* __atomic_fetch_add (&counter, 1, MEMMODEL_RELAXED); */
@@ -1909,6 +1931,8 @@ tree_profiling (void)
       else
 	counter_update = COUNTER_UPDATE_ATOMIC_BUILTIN;
     }
+  else if (flag_profile_update == PROFILE_UPDATE_FUNCTION_CALL)
+    counter_update = COUNTER_UPDATE_FUNCTION_CALL;
 
   /* This is a small-ipa pass that gets called only once, from
      cgraphunit.cc:ipa_passes().  */

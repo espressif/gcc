@@ -236,7 +236,8 @@ enum offload_abi {
 enum profile_update {
   PROFILE_UPDATE_SINGLE,
   PROFILE_UPDATE_ATOMIC,
-  PROFILE_UPDATE_PREFER_ATOMIC
+  PROFILE_UPDATE_PREFER_ATOMIC,
+  PROFILE_UPDATE_FUNCTION_CALL
 };
 
 /* Type of profile reproducibility methods.  */

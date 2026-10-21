@@ -1323,7 +1323,8 @@ static const char *cc1_options =
  %{coverage:-fprofile-arcs -ftest-coverage}\
  %{fprofile-arcs|fcondition-coverage|fpath-coverage|fprofile-generate*|coverage:\
    %{!fprofile-update=single:\
-     %{pthread:-fprofile-update=prefer-atomic}}}";
+     %{!fprofile-update=function-call:\
+       %{pthread:-fprofile-update=prefer-atomic}}}}";
 
 static const char *asm_options =
 "%{-target-help:%:print-asm-header()} "

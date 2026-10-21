@@ -325,6 +325,7 @@ extern void __gcov_average_profiler (gcov_type *, gcov_type);
 extern void __gcov_average_profiler_atomic (gcov_type *, gcov_type);
 extern void __gcov_ior_profiler (gcov_type *, gcov_type);
 extern void __gcov_ior_profiler_atomic (gcov_type *, gcov_type);
+extern gcov_type __gcov_increment_fn (gcov_type *);
 
 #ifndef inhibit_libc
 /* The wrappers around some library functions..  */
