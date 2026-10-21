@@ -1358,7 +1358,9 @@ gimple_init_gcov_profiler (void)
       /* gcov_type (*) (gcov_type *)  */
       tree inc_fn_type
 	= build_function_type_list (gcov_type_node, gcov_type_ptr, NULL_TREE);
-      tree_gcov_inc_fn = build_fn_decl ("__gcov_increment_fn", inc_fn_type);
+      const char *inc_name = (TYPE_PRECISION (gcov_type_node) > 32
+			      ? "__gcov_increment_fn" : "__gcov_increment_fn_32");
+      tree_gcov_inc_fn = build_fn_decl (inc_name, inc_fn_type);
       /* User override must not throw or call back into this unit.  */
       TREE_NOTHROW (tree_gcov_inc_fn) = 1;
       DECL_ATTRIBUTES (tree_gcov_inc_fn)
@@ -1404,6 +1406,9 @@ gen_assign_counter_update (gimple_stmt_iterator *gsi, gcall *call, tree func,
 /* Output instructions as GIMPLE trees to increment the COUNTER.  If RESULT is
    not null, then assign the updated counter value to RESULT.  Insert the
    instructions to GSI.  Use NAME for temporary values.  */
+
+static void
+gen_counter_update_32 (gimple_stmt_iterator *, tree, tree, const char *, tree);
 
 static inline void
 gen_counter_update (gimple_stmt_iterator *gsi, tree counter, tree result,
@@ -1462,6 +1467,8 @@ gen_counter_update (gimple_stmt_iterator *gsi, tree counter, tree result,
 					relaxed);
       gsi_insert_after (gsi, call2, GSI_NEW_STMT);
     }
+  else if (TYPE_PRECISION (type) <= 32)
+    gen_counter_update_32 (gsi, counter, result, name, type);
   else
     {
       tree tmp1 = make_temp_ssa_name (type, NULL, name);
@@ -1878,6 +1885,11 @@ tree_profiling (void)
 {
   struct cgraph_node *node;
 
+  if (flag_profile_counter_size == 32 && flag_profile_values)
+    fatal_error (UNKNOWN_LOCATION,
+		 "%<-fprofile-counter-size=32%> is incompatible with "
+		 "%<-fprofile-values%>");
+
   coverage_init_file ();
 
   /* Verify whether we can utilize atomic update operations.  */
@@ -2145,6 +2157,39 @@ simple_ipa_opt_pass *
 make_pass_ipa_tree_profile (gcc::context *ctxt)
 {
   return new pass_ipa_tree_profile (ctxt);
+}
+
+/* -fprofile-counter-size=32.  Body kept out of gen_counter_update so that
+   function can stay close to upstream.  */
+
+static void
+gen_counter_update_32 (gimple_stmt_iterator *gsi, tree counter, tree result,
+		       const char *name, tree type)
+{
+  /* Signed 32-bit storage keeps the negative-count sentinel.  The
+     increment itself is unsigned so it wraps instead of invoking
+     signed-overflow undefined behavior.  */
+  tree utype = unsigned_type_for (type);
+  tree uone = build_int_cst (utype, 1);
+  tree loaded = make_temp_ssa_name (type, NULL, name);
+  gassign *load = gimple_build_assign (loaded, counter);
+  gsi_insert_after (gsi, load, GSI_NEW_STMT);
+  tree tmp1 = make_temp_ssa_name (utype, NULL, name);
+  gassign *assign1 = gimple_build_assign (tmp1, NOP_EXPR, loaded);
+  gsi_insert_after (gsi, assign1, GSI_NEW_STMT);
+  tree tmp2 = make_temp_ssa_name (utype, NULL, name);
+  gassign *assign2 = gimple_build_assign (tmp2, PLUS_EXPR, tmp1, uone);
+  gsi_insert_after (gsi, assign2, GSI_NEW_STMT);
+  tree tmp3 = make_temp_ssa_name (type, NULL, name);
+  gassign *assign3 = gimple_build_assign (tmp3, NOP_EXPR, tmp2);
+  gsi_insert_after (gsi, assign3, GSI_NEW_STMT);
+  gassign *assign4 = gimple_build_assign (unshare_expr (counter), tmp3);
+  gsi_insert_after (gsi, assign4, GSI_NEW_STMT);
+  if (result)
+    {
+      gassign *assign5 = gimple_build_assign (result, tmp3);
+      gsi_insert_after (gsi, assign5, GSI_NEW_STMT);
+    }
 }
 
 #include "gt-tree-profile.h"

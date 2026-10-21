@@ -132,14 +132,44 @@ static const char *const ctr_names[GCOV_COUNTERS] = {
 /* Forward declarations.  */
 static tree build_var (tree, tree, int);
 
+/* In-memory gcov counter width in bits.  0 selects the historical
+   width (64 when long long is wider than 32 bits, otherwise 32).  */
+
+static unsigned
+gcov_counter_bits (void)
+{
+  unsigned bits = flag_profile_counter_size;
+
+  if (bits == 0)
+    return LONG_LONG_TYPE_SIZE > 32 ? 64 : 32;
+  if (bits != 32 && bits != 64)
+    fatal_error (UNKNOWN_LOCATION,
+		 "argument to %<-fprofile-counter-size=%> must be 32 or 64");
+  return bits;
+}
+
+/* Merge symbol for counter IX.  32-bit arc and bit-set counters use the
+   _32 entry point.  Top-N keeps the historical symbol.  */
+
+static const char *
+gcov_counter_merge_name (unsigned ix)
+{
+  const char *merge_name = ctr_merge_functions[ix];
+
+  if (gcov_counter_bits () == 32
+      && strcmp (merge_name, "__gcov_merge_topn") != 0)
+    /* concat, not ACONCAT: the caller keeps the pointer after return.  */
+    merge_name = concat (merge_name, "_32", NULL);
+  return merge_name;
+}
+
 /* Return the type node for gcov_type.  */
 
 tree
 get_gcov_type (void)
 {
   scalar_int_mode mode
-    = smallest_int_mode_for_size
-      (LONG_LONG_TYPE_SIZE > 32 ? 64 : 32).require ();
+    = smallest_int_mode_for_size (gcov_counter_bits ()).require ();
   return lang_hooks.types.type_for_mode (mode, false);
 }
 
@@ -975,6 +1005,12 @@ build_info_type (tree type, tree fn_info_ptr_type)
   DECL_CHAIN (field) = fields;
   fields = field;
 
+  /* counter_size.  Appended so existing fields keep their offsets.  */
+  field = build_decl (BUILTINS_LOCATION, FIELD_DECL, NULL_TREE,
+		      get_gcov_unsigned_t ());
+  DECL_CHAIN (field) = fields;
+  fields = field;
+
   finish_builtin_struct (type, "__gcov_info", fields, NULL_TREE);
 }
 
@@ -1035,7 +1071,7 @@ build_info (tree info_type, tree fn_ary, unsigned object_checksum)
 	{
 	  tree merge_fn = build_decl (BUILTINS_LOCATION,
 				      FUNCTION_DECL,
-				      get_identifier (ctr_merge_functions[ix]),
+				      get_identifier (gcov_counter_merge_name (ix)),
 				      TREE_TYPE (merge_fn_type));
 	  DECL_EXTERNAL (merge_fn) = 1;
 	  TREE_PUBLIC (merge_fn) = 1;
@@ -1061,6 +1097,13 @@ build_info (tree info_type, tree fn_ary, unsigned object_checksum)
   /* functions */
   CONSTRUCTOR_APPEND_ELT (v1, info_fields,
 			  build1 (ADDR_EXPR, TREE_TYPE (info_fields), fn_ary));
+  info_fields = DECL_CHAIN (info_fields);
+
+  /* counter_size */
+  CONSTRUCTOR_APPEND_ELT (v1, info_fields,
+			  build_int_cstu (TREE_TYPE (info_fields),
+					  GCOV_COUNTER_SIZE_TAG
+					  | (gcov_counter_bits () / 8)));
   info_fields = DECL_CHAIN (info_fields);
 
   gcc_assert (!info_fields);

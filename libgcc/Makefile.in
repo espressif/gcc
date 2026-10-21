@@ -944,6 +944,13 @@ $(libgcov-driver-objects): %$(objext): $(srcdir)/libgcov-driver.c \
   $(srcdir)/libgcov-driver-system.c $(srcdir)/gcov.h $(srcdir)/libgcov.h
 	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-driver.c
 
+# -fprofile-counter-size=32 entry points.  Separate from the upstream
+# libgcov-*.c units so those files do not need local edits.
+libgcov-objects += _gcov_counter32$(objext)
+
+_gcov_counter32$(objext): $(srcdir)/libgcov-counter32.c $(srcdir)/gcov.h \
+	$(srcdir)/libgcov.h
+	$(gcc_compile) -c $(srcdir)/libgcov-counter32.c
 
 # Static libraries.
 libgcc.a: $(libgcc-objects)

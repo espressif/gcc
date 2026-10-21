@@ -240,6 +240,10 @@ struct gcov_info
   struct gcov_fn_info **functions;
   struct gcov_summary summary;
 #endif /* !IN_GCOV_TOOL */
+
+  /* GCOV_COUNTER_SIZE_TAG combined with the in-memory counter width in
+     bytes.  Zero means a historical object whose counters are gcov_type.  */
+  gcov_unsigned_t counter_size;
 };
 
 /* Root of a program/shared-object state */
@@ -576,5 +580,46 @@ gcov_topn_add_value (gcov_type *counters, gcov_type value, gcov_type count,
 }
 
 #endif /* !inhibit_libc */
+
+/* -fprofile-counter-size=32.  Kept at the end of this header so the
+   upstream declarations above stay contiguous.  */
+
+typedef signed gcov_s32 __attribute__ ((mode (SI)));
+typedef unsigned gcov_u32 __attribute__ ((mode (SI)));
+
+extern void __gcov_merge_add_32 (gcov_s32 *, unsigned) ATTRIBUTE_HIDDEN;
+extern void __gcov_merge_time_profile_32 (gcov_s32 *, unsigned) ATTRIBUTE_HIDDEN;
+extern void __gcov_merge_ior_32 (gcov_s32 *, unsigned) ATTRIBUTE_HIDDEN;
+extern gcov_s32 __gcov_increment_fn_32 (gcov_s32 *)
+  __attribute__ ((weak));
+
+/* Bytes per in-memory counter for GI.  Untagged objects use gcov_type.  */
+
+static inline unsigned
+gcov_counter_nbytes (const struct gcov_info *gi)
+{
+  gcov_unsigned_t tagged = gi->counter_size;
+
+  if ((tagged & 0xffff0000u) == GCOV_COUNTER_SIZE_TAG)
+    {
+      unsigned n = tagged & 0xffffu;
+      if (n == 4 || n == 8)
+	return n;
+    }
+  return sizeof (gcov_type);
+}
+
+/* Read counter INDEX from VALUES.  A 4-byte slot is zero-extended so the
+   .gcda record stays a non-negative 64-bit count.  */
+
+static inline gcov_type
+gcov_counter_read (const void *values, unsigned index, unsigned nbytes)
+{
+  if (nbytes == 4)
+    {
+      return (gcov_type) ((const gcov_u32 *) values)[index];
+    }
+  return ((const gcov_type *) values)[index];
+}
 
 #endif /* GCC_LIBGCOV_H */

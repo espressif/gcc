@@ -105,7 +105,8 @@ gcov_clear (const struct gcov_info *list)
               if (!gi_ptr->merge[t_ix])
                 continue;
 
-              memset (ci_ptr->values, 0, sizeof (gcov_type) * ci_ptr->num);
+              memset (ci_ptr->values, 0,
+		      gcov_counter_nbytes (gi_ptr) * ci_ptr->num);
               ci_ptr++;
             }
         }

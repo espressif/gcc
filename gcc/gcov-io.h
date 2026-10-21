@@ -254,6 +254,11 @@ typedef uint64_t gcov_type_unsigned;
 
 #define GCOV_WORD_SIZE		4
 
+/* Tag in gcov_info.counter_size.  The low 16 bits are the in-memory
+   counter width in bytes (4 or 8).  An untagged value means the
+   historical gcov_type width.  */
+#define GCOV_COUNTER_SIZE_TAG	((gcov_unsigned_t) 0x47330000)
+
 #define GCOV_TAG_FUNCTION	 ((gcov_unsigned_t)0x01000000)
 #define GCOV_TAG_FUNCTION_LENGTH (3 * GCOV_WORD_SIZE)
 #define GCOV_TAG_BLOCKS		 ((gcov_unsigned_t)0x01410000)

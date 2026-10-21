@@ -29,10 +29,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* Return 1, if all counter values are zero, otherwise 0. */
 
 static inline int
-are_all_counters_zero (const struct gcov_ctr_info *ci_ptr)
+are_all_counters_zero (const struct gcov_ctr_info *ci_ptr, unsigned nbytes)
 {
   for (unsigned i = 0; i < ci_ptr->num; i++)
-    if (ci_ptr->values[i] != 0)
+    if (gcov_counter_read (ci_ptr->values, i, nbytes) != 0)
       return 0;
 
   return 1;
@@ -577,7 +577,8 @@ write_one_data (const struct gcov_info *gi_ptr,
 	  else
 	    {
 	      dump_unsigned (GCOV_TAG_FOR_COUNTER (t_ix), dump_fn, arg);
-	      if (are_all_counters_zero (ci_ptr))
+	      unsigned nbytes = gcov_counter_nbytes (gi_ptr);
+	      if (are_all_counters_zero (ci_ptr, nbytes))
 		/* Do not stream when all counters are zero.  */
 		dump_unsigned (GCOV_TAG_COUNTER_LENGTH (-n_counts),
 			       dump_fn, arg);
@@ -586,7 +587,8 @@ write_one_data (const struct gcov_info *gi_ptr,
 		  dump_unsigned (GCOV_TAG_COUNTER_LENGTH (n_counts),
 				 dump_fn, arg);
 		  for (unsigned i = 0; i < n_counts; i++)
-		    dump_counter (ci_ptr->values[i], dump_fn, arg);
+		    dump_counter (gcov_counter_read (ci_ptr->values, i, nbytes),
+				  dump_fn, arg);
 		}
 	    }
 
@@ -685,10 +687,14 @@ gcov_do_dump (struct gcov_info *list, int run_counted, int mode)
       {
 	const struct gcov_ctr_info *cinfo
 	  = &gi_ptr->functions[f_ix]->ctrs[GCOV_COUNTER_ARCS];
+	unsigned nbytes = gcov_counter_nbytes (gi_ptr);
 
 	for (unsigned i = 0; i < cinfo->num; i++)
-	  if (run_max < cinfo->values[i])
-	    run_max = cinfo->values[i];
+	  {
+	    gcov_type value = gcov_counter_read (cinfo->values, i, nbytes);
+	    if (run_max < value)
+	      run_max = value;
+	  }
       }
 
   allocate_filename_struct (&gf);

@@ -2698,6 +2698,19 @@ Enum(profile_update) String(prefer-atomic) Value(PROFILE_UPDATE_PREFER_ATOMIC)
 EnumValue
 Enum(profile_update) String(function-call) Value(PROFILE_UPDATE_FUNCTION_CALL)
 
+Enum
+Name(profile_counter_size) Type(int) UnknownError(invalid argument to %<-fprofile-counter-size=%> %qs)
+
+EnumValue
+Enum(profile_counter_size) String(32) Value(32)
+
+EnumValue
+Enum(profile_counter_size) String(64) Value(64)
+
+fprofile-counter-size=
+Common Joined RejectNegative Enum(profile_counter_size) Var(flag_profile_counter_size) Init(0)
+-fprofile-counter-size=[32|64]	Set the in-memory gcov counter width.
+
 fprofile-prefix-path=
 Common Joined RejectNegative Var(profile_prefix_path)
 Remove prefix from absolute path before mangling name for -fprofile-generate= and -fprofile-use=.

@@ -702,7 +702,8 @@ Objective-C and Objective-C++ Dialects}.
 -fprofile-dir=@var{path}  -fprofile-generate  -fprofile-generate=@var{path}
 -fprofile-info-section  -fprofile-info-section=@var{name}
 -fprofile-note=@var{path}  -fprofile-prefix-path=@var{path}
--fprofile-update=@var{method}  -fprofile-filter-files=@var{regex}
+-fprofile-update=@var{method}  -fprofile-counter-size=@var{width}
+-fprofile-filter-files=@var{regex}
 -fprofile-exclude-files=@var{regex}
 -fprofile-reproducible=@r{[}multithreaded@r{|}parallel-runs@r{|}serial@r{]}
 -fsanitize=@var{style}  -fsanitize-recover  -fsanitize-recover=@var{style}
@@ -17188,6 +17189,33 @@ profiling information (with @option{--coverage})
 describing them as if the files resided in
 directory @file{@var{new}} instead.
 See also @option{-ffile-prefix-map} and @option{-fcanon-prefix-map}.
+
+@opindex fprofile-counter-size
+@item -fprofile-counter-size=@var{width}
+
+Set the in-memory width of gcov counters to @var{width} bits.  @var{width}
+is @samp{32} or @samp{64}.  The default is 64 when @code{long long} is wider
+than 32 bits, and 32 otherwise.
+
+@samp{32} stores each counter in four bytes.  On a 32-bit target the inline
+increment is a single-word add, and @option{-fprofile-update=function-call} calls
+@code{__gcov_increment_fn_32} instead of @code{__gcov_increment_fn}.  The counter is still a
+signed type.  The increment wraps modulo @code{2^32}.  Counts that stay below
+@code{2^31} match the historical positive range; a larger count stays a full
+32-bit pattern and is written to the @file{.gcda} file zero-extended to 64
+bits, so host @command{gcov} can read it.
+
+Arc, condition, and path counters use the 32-bit merge functions
+@code{__gcov_merge_add_32} and @code{__gcov_merge_ior_32}.  A freestanding
+runtime that supplies its own gcov support must define those symbols, plus
+@code{__gcov_increment_fn_32} when @option{-fprofile-update=function-call} is used.  Each
+@code{gcov_info} object records the width in @code{counter_size}
+(@code{GCOV_COUNTER_SIZE_TAG} combined with 4 or 8).  An untagged value means
+the historical @code{gcov_type} width.
+
+@samp{32} cannot be combined with @option{-fprofile-values}.  Value profiling
+stores quantities that do not fit in a 32-bit slot, including pointers held by
+the top-N counters.
 
 @opindex fprofile-update
 @item -fprofile-update=@var{method}
