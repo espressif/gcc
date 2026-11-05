@@ -2510,7 +2510,20 @@ riscv*-*-linux*)
 	esac
 	case "x${enable_multilib}" in
 	xno) ;;
-	xyes) tmake_file="${tmake_file} riscv/t-linux-multilib" ;;
+	xyes)
+		case ${target} in
+		riscv64-esp-linux-gnu)
+			tmake_file="${tmake_file} riscv/t-esp-linux-glibc-multilib"
+			;;
+		riscv64-esp-linux-musl)
+			tmake_file="${tmake_file} riscv/t-esp-linux-musl-multilib"
+			;;
+		*)
+			tmake_file="${tmake_file} riscv/t-linux-multilib"
+			;;
+		esac
+		;;
+
 	*) echo "Unknown value for enable_multilib"; exit 1
 	esac
 	tmake_file="${tmake_file} riscv/t-riscv riscv/t-linux"
